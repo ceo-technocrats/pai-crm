@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}PAI CRM{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+</head>
+<body>
+  {% if session.get('user') %}
+  <nav class="nav">
+    <a href="{{ url_for('index') }}" class="nav-brand">PAI CRM</a>
+    <div class="nav-links">
+      <a href="{{ url_for('contacts') }}">연락처</a>
+      <a href="{{ url_for('pipeline') }}">파이프라인</a>
+      <a href="{{ url_for('bulk_send') }}">대량 발송</a>
+      <a href="{{ url_for('analytics') }}">분석</a>
+      <a href="{{ url_for('settings') }}">설정</a>
+    </div>
+    <div class="nav-user">
+      <span>{{ session.user.name }}</span>
+      <a href="{{ url_for('auth.logout') }}">로그아웃</a>
+    </div>
+  </nav>
+  {% endif %}
+
+  <main class="main">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-container">
+          {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

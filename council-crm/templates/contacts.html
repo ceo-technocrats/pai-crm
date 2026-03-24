@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}연락처 — PAI CRM{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>연락처 <span class="count-badge">{{ total }}</span></h1>
+  <div class="header-actions">
+    <a href="{{ url_for('export_csv') }}{% if filters.status %}?status={{ filters.status }}{% endif %}" class="btn btn-secondary">CSV 내보내기</a>
+    <form action="{{ url_for('import_csv') }}" method="post" enctype="multipart/form-data" style="display:inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label class="btn btn-secondary">
+        CSV 가져오기
+        <input type="file" name="csvfile" accept=".csv" style="display:none" onchange="this.closest('form').submit()">
+      </label>
+    </form>
+  </div>
+</div>
+
+<form class="filter-bar" method="get" action="{{ url_for('contacts') }}">
+  <input type="text" name="q" value="{{ filters.search }}" placeholder="이름, 이메일 검색..." class="input">
+  <select name="region" class="select">
+    <option value="">전체 지역</option>
+    {% for r in regions %}
+    <option value="{{ r }}" {% if filters.region == r %}selected{% endif %}>{{ r }}</option>
+    {% endfor %}
+  </select>
+  <select name="party" class="select">
+    <option value="">전체 정당</option>
+    {% for p in parties %}
+    <option value="{{ p }}" {% if filters.party == p %}selected{% endif %}>{{ p }}</option>
+    {% endfor %}
+  </select>
+  <select name="status" class="select">
+    <option value="">전체 상태</option>
+    {% for s in ["미연락","연락함","답변옴","데모예약","클로즈"] %}
+    <option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>{{ s }}</option>
+    {% endfor %}
+  </select>
+  <select name="tag" class="select">
+    <option value="">전체 태그</option>
+    {% for t in tags %}
+    <option value="{{ t.name }}" {% if filters.tag == t.name %}selected{% endif %}>{{ t.name }}</option>
+    {% endfor %}
+  </select>
+  <label class="checkbox-label">
+    <input type="checkbox" name="today_targets" value="1" {% if filters.today_targets %}checked{% endif %}>
+    오늘 팔로업
+  </label>
+  <button type="submit" class="btn btn-primary">검색</button>
+  <a href="{{ url_for('contacts') }}" class="btn btn-secondary">초기화</a>
+</form>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>이름</th>
+      <th>의회</th>
+      <th>지역</th>
+      <th>정당</th>
+      <th>이메일</th>
+      <th>상태</th>
+      <th>팔로업</th>
+      <th>태그</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in contacts %}
+    <tr class="clickable-row" data-href="{{ url_for('contact_detail', cid=c.id) }}">
+      <td><a href="{{ url_for('contact_detail', cid=c.id) }}">{{ c.name }}</a></td>
+      <td>{{ c.council }}</td>
+      <td>{{ c.region }}</td>
+      <td>{{ c.party or '—' }}</td>
+      <td>{{ c.email or '—' }}</td>
+      <td><span class="status-badge status-{{ c.status }}">{{ c.status }}</span></td>
+      <td>{% if c.follow_up_date %}<span class="{% if c.follow_up_date < today %}overdue{% endif %}">{{ c.follow_up_date }}</span>{% else %}—{% endif %}</td>
+      <td>
+        {% for tag in (c.tag_names or '').split(',') if tag %}
+        <span class="tag">{{ tag.strip() }}</span>
+        {% endfor %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="empty">검색 결과가 없습니다.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if total > per_page %}
+<div class="pagination">
+  {% if page > 1 %}
+  <a href="?{{ request.query_string.decode() | replace('page='+page|string, 'page='+(page-1)|string) }}" class="btn btn-secondary">이전</a>
+  {% endif %}
+  <span>{{ page }} / {{ ((total - 1) // per_page + 1) }}</span>
+  {% if page * per_page < total %}
+  <a href="?{{ request.query_string.decode() | replace('page='+page|string, 'page='+(page+1)|string) if 'page=' in request.query_string.decode() else request.query_string.decode() + '&page=' + (page+1)|string }}" class="btn btn-secondary">다음</a>
+  {% endif %}
+</div>
+{% endif %}
+
+<script>
+document.querySelectorAll('.clickable-row').forEach(row => {
+  row.addEventListener('click', e => {
+    if (!e.target.closest('a')) window.location = row.dataset.href;
+  });
+});
+</script>
+{% endblock %}

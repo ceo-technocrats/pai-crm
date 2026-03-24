@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}파이프라인 — PAI CRM{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>파이프라인</h1>
+</div>
+
+<div class="kanban">
+  {% for col in columns %}
+  <div class="kanban-col">
+    <div class="kanban-col-header">
+      <span class="kanban-col-title">{{ col.status }}</span>
+      <span class="kanban-col-count">{{ col.contacts | length }}{% if col.overflow %}+{% endif %}</span>
+    </div>
+    <div class="kanban-cards">
+      {% for c in col.contacts %}
+      <a href="{{ url_for('contact_detail', cid=c.id) }}" class="kanban-card">
+        <div class="kanban-card-name">{{ c.name }}</div>
+        <div class="kanban-card-meta">{{ c.council }} · {{ c.region }}</div>
+        {% if c.follow_up_date %}
+        <div class="kanban-card-followup {% if c.follow_up_date < today %}overdue{% endif %}">
+          📅 {{ c.follow_up_date }}
+        </div>
+        {% endif %}
+        {% if c.tag_names %}
+        <div class="kanban-card-tags">
+          {% for tag in c.tag_names.split(',') if tag.strip() %}
+          <span class="tag tag-sm">{{ tag.strip() }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </a>
+      {% endfor %}
+      {% if col.overflow %}
+      <a href="{{ url_for('contacts') }}?status={{ col.status }}" class="kanban-more">
+        + {{ col.overflow }}명 더 보기
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

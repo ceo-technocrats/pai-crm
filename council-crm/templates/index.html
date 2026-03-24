@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}대시보드 — PAI CRM{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>대시보드</h1>
+</div>
+
+{% if not gmail_ok %}
+<div class="alert alert-warning">
+  Gmail 연동이 필요합니다.
+  <a href="{{ url_for('auth.google_auth') }}" class="btn btn-sm btn-primary">Google 인증</a>
+</div>
+{% endif %}
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-value">{{ data.total }}</div>
+    <div class="stat-label">전체 연락처</div>
+  </div>
+  <div class="stat-card stat-card--warning">
+    <div class="stat-value">{{ data.overdue }}</div>
+    <div class="stat-label">팔로업 기한 초과</div>
+    <a href="{{ url_for('contacts') }}?today_targets=0&status=연락함" class="stat-link">보기</a>
+  </div>
+  <div class="stat-card stat-card--info">
+    <div class="stat-value">{{ data.due_today }}</div>
+    <div class="stat-label">오늘 팔로업 예정</div>
+    <a href="{{ url_for('contacts') }}?today_targets=1" class="stat-link">보기</a>
+  </div>
+  <div class="stat-card stat-card--success">
+    <div class="stat-value">{{ data.sends_today }}</div>
+    <div class="stat-label">오늘 발송 수</div>
+  </div>
+</div>
+
+<div class="section-header">
+  <h2>파이프라인 현황</h2>
+  <a href="{{ url_for('pipeline') }}" class="btn btn-sm btn-secondary">칸반 보기</a>
+</div>
+<div class="pipeline-summary">
+  {% for col in data.pipeline %}
+  <div class="pipeline-col-summary">
+    <div class="pipeline-label">{{ col.status }}</div>
+    <div class="pipeline-count">{{ col.count }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="section-header">
+  <h2>빠른 액션</h2>
+</div>
+<div class="quick-actions">
+  <a href="{{ url_for('contacts') }}?status=미연락" class="btn btn-primary">미연락 보기</a>
+  <a href="{{ url_for('bulk_send') }}" class="btn btn-secondary">대량 발송</a>
+  <a href="{{ url_for('analytics') }}" class="btn btn-secondary">분석 보기</a>
+  <form action="{{ url_for('import_csv') }}" method="post" enctype="multipart/form-data"
+        class="import-form" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="btn btn-secondary">
+      CSV 가져오기
+      <input type="file" name="csvfile" accept=".csv" style="display:none"
+             onchange="this.closest('form').submit()">
+    </label>
+  </form>
+</div>
+{% endblock %}

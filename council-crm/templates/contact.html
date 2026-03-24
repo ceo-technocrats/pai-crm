@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}{{ contact.name }} — PAI CRM{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <a href="{{ url_for('contacts') }}" class="back-link">← 연락처 목록</a>
+    <h1>{{ contact.name }} <span class="status-badge status-{{ contact.status }}">{{ contact.status }}</span></h1>
+    <div class="contact-meta">
+      {{ contact.council }} · {{ contact.region }}
+      {% if contact.party %} · {{ contact.party }}{% endif %}
+      {% if contact.district %} · {{ contact.district }}{% endif %}
+      {% if contact.term %} · {{ contact.term }}기{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="two-col">
+  <!-- Left: contact info + actions -->
+  <div class="col-main">
+
+    <!-- Contact info -->
+    <div class="card">
+      <h2>연락처 정보</h2>
+      <dl class="info-grid">
+        <dt>이메일</dt><dd>{{ contact.email or '—' }}</dd>
+        <dt>사무실</dt><dd>{{ contact.phone_office or '—' }}</dd>
+        <dt>휴대폰</dt><dd>{{ contact.phone_mobile or '—' }}</dd>
+        <dt>팩스</dt><dd>{{ contact.fax or '—' }}</dd>
+        <dt>팔로업</dt><dd>{{ contact.follow_up_date or '—' }}</dd>
+        <dt>클로즈</dt><dd>{{ contact.close_outcome or '—' }}</dd>
+      </dl>
+    </div>
+
+    <!-- Status update -->
+    <div class="card">
+      <h2>상태 변경</h2>
+      <form method="post" action="{{ url_for('update_status', cid=contact.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="form-row">
+          <select name="status" class="select">
+            {% for s in statuses %}
+            <option value="{{ s }}" {% if contact.status == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+          <input type="date" name="follow_up_date" value="{{ contact.follow_up_date or '' }}" class="input" placeholder="팔로업 날짜">
+        </div>
+        <div class="form-row" id="close-outcome-row" style="display:{% if contact.status == '클로즈' %}flex{% else %}none{% endif %}">
+          <select name="close_outcome" class="select">
+            <option value="">결과 선택</option>
+            <option value="won" {% if contact.close_outcome == 'won' %}selected{% endif %}>수주</option>
+            <option value="lost" {% if contact.close_outcome == 'lost' %}selected{% endif %}>실패</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary">저장</button>
+      </form>
+    </div>
+
+    <!-- Send email -->
+    <div class="card">
+      <h2>이메일 발송</h2>
+      {% if contact.email %}
+      <form method="post" action="{{ url_for('send_single_email', cid=contact.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="form-group">
+          <label>제목</label>
+          <input type="text" name="subject" value="{{ preview_subject }}" class="input" required>
+        </div>
+        <div class="form-group">
+          <label>본문</label>
+          <textarea name="body" rows="8" class="textarea">{{ preview_body }}</textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">발송</button>
+      </form>
+      {% else %}
+      <p class="text-muted">이메일 주소가 없습니다.</p>
+      {% endif %}
+    </div>
+
+    <!-- Manual activity log -->
+    <div class="card">
+      <h2>활동 기록</h2>
+      <form method="post" action="{{ url_for('log_activity', cid=contact.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="form-row">
+          <select name="channel" class="select">
+            <option value="email">이메일</option>
+            <option value="phone">전화</option>
+            <option value="meeting">미팅</option>
+            <option value="kakao">카카오</option>
+            <option value="other">기타</option>
+          </select>
+          <select name="direction" class="select">
+            <option value="outbound">발신</option>
+            <option value="inbound">수신</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <input type="text" name="subject" class="input" placeholder="제목 (선택)">
+        </div>
+        <div class="form-group">
+          <textarea name="notes" rows="3" class="textarea" placeholder="메모"></textarea>
+        </div>
+        <button type="submit" class="btn btn-secondary">기록 추가</button>
+      </form>
+    </div>
+
+    <!-- Notes -->
+    <div class="card">
+      <h2>메모</h2>
+      <form method="post" action="{{ url_for('update_notes', cid=contact.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <textarea name="notes" rows="5" class="textarea">{{ contact.notes or '' }}</textarea>
+        <button type="submit" class="btn btn-secondary">저장</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Right: tags + activity log -->
+  <div class="col-side">
+
+    <!-- Tags -->
+    <div class="card">
+      <h2>태그</h2>
+      <div class="tags-list">
+        {% for tag in contact_tags %}
+        <span class="tag">
+          {{ tag.name }}
+          <form method="post" action="{{ url_for('remove_tag', cid=contact.id, tid=tag.id) }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="tag-remove">×</button>
+          </form>
+        </span>
+        {% endfor %}
+      </div>
+      <form method="post" action="{{ url_for('add_tag', cid=contact.id) }}" class="form-row mt-sm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="text" name="tag_name" list="tag-suggestions" class="input" placeholder="태그 추가">
+        <datalist id="tag-suggestions">
+          {% for t in all_tags %}<option value="{{ t.name }}">{% endfor %}
+        </datalist>
+        <button type="submit" class="btn btn-secondary">추가</button>
+      </form>
+    </div>
+
+    <!-- Activity log -->
+    <div class="card">
+      <h2>활동 이력</h2>
+      {% if log %}
+      <ul class="activity-log">
+        {% for entry in log %}
+        <li class="activity-entry">
+          <div class="activity-header">
+            <span class="activity-channel channel-{{ entry.channel }}">{{ entry.channel }}</span>
+            <span class="activity-dir">{{ '→' if entry.direction == 'outbound' else '←' }}</span>
+            <span class="activity-date">{{ entry.logged_at.strftime('%Y-%m-%d %H:%M') if entry.logged_at else '' }}</span>
+          </div>
+          {% if entry.subject %}<div class="activity-subject">{{ entry.subject }}</div>{% endif %}
+          {% if entry.notes %}<div class="activity-notes">{{ entry.notes }}</div>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="text-muted">활동 이력이 없습니다.</p>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
+<script>
+document.querySelector('select[name="status"]').addEventListener('change', function() {
+  document.getElementById('close-outcome-row').style.display =
+    this.value === '클로즈' ? 'flex' : 'none';
+});
+</script>
+{% endblock %}

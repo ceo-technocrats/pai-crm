@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>로그인 — PAI CRM</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+</head>
+<body class="login-page">
+  <div class="login-box">
+    <h1 class="login-title">PAI CRM</h1>
+    <p class="login-sub">의정활동 지원 고객 관리 시스템</p>
+
+    {% if error %}
+      <div class="flash flash-error">{{ error }}</div>
+    {% endif %}
+
+    <a href="{{ url_for('auth.google_auth') }}" class="btn btn-google">
+      Google 계정으로 로그인
+    </a>
+
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  </div>
+</body>
+</html>

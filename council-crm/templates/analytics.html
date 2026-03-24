@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}분석 — PAI CRM{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>분석</h1>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-value">{{ data.total }}</div>
+    <div class="stat-label">전체 연락처</div>
+  </div>
+  <div class="stat-card stat-card--success">
+    <div class="stat-value">{{ data.won }}</div>
+    <div class="stat-label">수주</div>
+  </div>
+  <div class="stat-card stat-card--error">
+    <div class="stat-value">{{ data.lost }}</div>
+    <div class="stat-label">실패</div>
+  </div>
+  <div class="stat-card stat-card--info">
+    <div class="stat-value">{{ data.response_rate }}%</div>
+    <div class="stat-label">응답률 (답변옴 이상)</div>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="col-main">
+    <div class="card">
+      <h2>상태별 현황</h2>
+      <table class="table">
+        <thead><tr><th>상태</th><th>수</th><th>비율</th></tr></thead>
+        <tbody>
+          {% for row in data.by_status %}
+          <tr>
+            <td><span class="status-badge status-{{ row.status }}">{{ row.status }}</span></td>
+            <td>{{ row.count }}</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar" style="width:{{ (row.count / data.total * 100) | round(1) if data.total else 0 }}%"></div>
+                <span>{{ (row.count / data.total * 100) | round(1) if data.total else 0 }}%</span>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="col-side">
+    <div class="card">
+      <h2>지역별 현황</h2>
+      <table class="table">
+        <thead><tr><th>지역</th><th>수</th></tr></thead>
+        <tbody>
+          {% for row in data.by_region %}
+          <tr>
+            <td>{{ row.region }}</td>
+            <td>{{ row.count }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

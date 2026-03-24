@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}403 — PAI CRM{% endblock %}
+{% block content %}
+<div class="error-page">
+  <h1>403</h1>
+  <p>접근이 거부되었습니다.</p>
+  <a href="{{ url_for('index') }}" class="btn btn-primary">대시보드로</a>
+</div>
+{% endblock %}

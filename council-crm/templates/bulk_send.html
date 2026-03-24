@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}대량 발송 — PAI CRM{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>대량 발송</h1>
+</div>
+
+{% if not gmail_ok %}
+<div class="alert alert-warning">
+  Gmail 인증이 필요합니다.
+  <a href="{{ url_for('auth.google_auth') }}" class="btn btn-sm btn-primary">Google 인증</a>
+</div>
+{% endif %}
+
+{% if job_id and job_status %}
+<!-- Job status view -->
+<div class="card">
+  <h2>발송 현황 <code>{{ job_id[:8] }}…</code></h2>
+  <div class="stats-grid">
+    <div class="stat-card stat-card--success">
+      <div class="stat-value">{{ job_status.sent }}</div>
+      <div class="stat-label">발송 완료</div>
+    </div>
+    <div class="stat-card stat-card--error">
+      <div class="stat-value">{{ job_status.failed }}</div>
+      <div class="stat-label">실패</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ job_status.pending }}</div>
+      <div class="stat-label">대기 중</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ job_status.skipped }}</div>
+      <div class="stat-label">건너뜀</div>
+    </div>
+  </div>
+
+  {% if job_status.pending > 0 %}
+  <p class="text-muted">Cron이 5분마다 실행되어 대기 중인 이메일을 처리합니다.</p>
+  <button onclick="location.reload()" class="btn btn-secondary">새로고침</button>
+  {% endif %}
+
+  {% if job_status.failed > 0 %}
+  <form method="post" action="{{ url_for('bulk_send_retry', job_id=job_id) }}" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="btn btn-warning">실패 {{ job_status.failed }}건 재시도</button>
+  </form>
+  {% endif %}
+
+  {% if job_status.pending == 0 and job_status.failed == 0 %}
+  <div class="alert alert-success">발송이 완료되었습니다.</div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- New send form -->
+<div class="card">
+  <h2>새 대량 발송</h2>
+  <form method="post" action="{{ url_for('bulk_send_post') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <h3>대상 필터</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>지역</label>
+        <select name="region" class="select">
+          <option value="">전체</option>
+          {% for r in regions %}
+          <option value="{{ r }}">{{ r }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>정당</label>
+        <select name="party" class="select">
+          <option value="">전체</option>
+          {% for p in parties %}
+          <option value="{{ p }}">{{ p }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>상태</label>
+        <select name="status" class="select">
+          <option value="미연락" selected>미연락</option>
+          <option value="연락함">연락함</option>
+          <option value="">전체</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>태그</label>
+        <select name="tag" class="select">
+          <option value="">전체</option>
+          {% for t in tags %}
+          <option value="{{ t.name }}">{{ t.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <h3>이메일 내용 <span class="text-muted">(비워두면 기본 템플릿 사용)</span></h3>
+    <div class="form-group">
+      <label>제목</label>
+      <input type="text" name="subject" class="input" value="{{ template.subject if template else '' }}">
+    </div>
+    <div class="form-group">
+      <label>본문</label>
+      <p class="text-muted hint">변수: {의원명}, {의회명}, {선거구}</p>
+      <textarea name="body" rows="10" class="textarea">{{ template.body if template else '' }}</textarea>
+    </div>
+
+    <button type="submit" class="btn btn-primary" {% if not gmail_ok %}disabled{% endif %}>
+      발송 예약
+    </button>
+  </form>
+</div>
+{% endblock %}
