@@ -20,7 +20,10 @@
 
     <!-- Contact info -->
     <div class="card">
-      <h2>연락처 정보</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2>연락처 정보</h2>
+        <a href="{{ url_for('edit_contact', cid=contact.id) }}" class="btn btn-sm btn-secondary">수정</a>
+      </div>
       <dl class="info-grid">
         <dt>이메일</dt><dd>{{ contact.email or '—' }}</dd>
         <dt>사무실</dt><dd>{{ contact.phone_office or '—' }}</dd>

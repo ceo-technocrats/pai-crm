@@ -4,6 +4,7 @@
 <div class="page-header">
   <h1>연락처 <span class="count-badge">{{ total }}</span></h1>
   <div class="header-actions">
+    <a href="{{ url_for('new_contact') }}" class="btn btn-primary">+ 새 연락처</a>
     <a href="{{ url_for('export_csv') }}{% if filters.status %}?status={{ filters.status }}{% endif %}" class="btn btn-secondary">CSV 내보내기</a>
     <form action="{{ url_for('import_csv') }}" method="post" enctype="multipart/form-data" style="display:inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

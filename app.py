@@ -137,6 +137,61 @@ def create_app():
             statuses=["미연락", "연락함", "답변옴", "데모예약", "클로즈"],
         )
 
+    # ── Add / Edit contact ────────────────────────────────────────────────────
+
+    @app.route("/contacts/new", methods=["GET", "POST"])
+    @login_required
+    def new_contact():
+        if request.method == "POST":
+            csrf_protect_check()
+            data = _contact_form_data()
+            cid = db.create_contact(data)
+            flash("연락처가 추가되었습니다.", "success")
+            return redirect(url_for("contact_detail", cid=cid))
+        return render_template(
+            "contact_form.html",
+            contact=None,
+            csrf_token=get_csrf_token(),
+        )
+
+    @app.route("/contacts/<int:cid>/edit", methods=["GET", "POST"])
+    @login_required
+    def edit_contact(cid):
+        contact = db.get_contact(cid)
+        if not contact:
+            abort(404)
+        if request.method == "POST":
+            csrf_protect_check()
+            data = _contact_form_data()
+            db.update_contact(cid, data)
+            flash("연락처가 수정되었습니다.", "success")
+            return redirect(url_for("contact_detail", cid=cid))
+        return render_template(
+            "contact_form.html",
+            contact=contact,
+            csrf_token=get_csrf_token(),
+        )
+
+    def _contact_form_data() -> dict:
+        return {
+            "region": request.form.get("region", "").strip(),
+            "council": request.form.get("council", "").strip(),
+            "name": request.form.get("name", "").strip(),
+            "party": request.form.get("party", "").strip() or None,
+            "district": request.form.get("district", "").strip() or None,
+            "term": request.form.get("term", "").strip() or None,
+            "email": request.form.get("email", "").strip() or None,
+            "phone_office": request.form.get("phone_office", "").strip() or None,
+            "phone_mobile": request.form.get("phone_mobile", "").strip() or None,
+            "fax": request.form.get("fax", "").strip() or None,
+            "notes": request.form.get("notes", "").strip() or None,
+        }
+
+    def csrf_protect_check():
+        token = request.form.get("csrf_token")
+        if not token or token != session.get("csrf_token"):
+            abort(403)
+
     # ── Status update ──────────────────────────────────────────────────────────
 
     @app.route("/contacts/<int:cid>/status", methods=["POST"])

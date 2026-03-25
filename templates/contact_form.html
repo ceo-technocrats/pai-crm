@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}{{ '수정' if contact else '새 연락처' }} — PAI CRM{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    {% if contact %}
+    <a href="{{ url_for('contact_detail', cid=contact.id) }}" class="back-link">← 연락처 상세</a>
+    <h1>연락처 수정</h1>
+    {% else %}
+    <a href="{{ url_for('contacts') }}" class="back-link">← 연락처 목록</a>
+    <h1>새 연락처</h1>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card" style="max-width:600px">
+  <form method="post" action="{{ url_for('edit_contact', cid=contact.id) if contact else url_for('new_contact') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <div class="form-group">
+      <label class="label">이름 <span style="color:red">*</span></label>
+      <input type="text" name="name" class="input" required value="{{ contact.name if contact else '' }}">
+    </div>
+
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label class="label">지역 <span style="color:red">*</span></label>
+        <input type="text" name="region" class="input" required value="{{ contact.region if contact else '' }}">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="label">의회 <span style="color:red">*</span></label>
+        <input type="text" name="council" class="input" required value="{{ contact.council if contact else '' }}">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label class="label">정당</label>
+        <input type="text" name="party" class="input" value="{{ contact.party if contact and contact.party else '' }}">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="label">선거구</label>
+        <input type="text" name="district" class="input" value="{{ contact.district if contact and contact.district else '' }}">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="label">기수</label>
+      <input type="number" name="term" class="input" value="{{ contact.term if contact and contact.term else '' }}">
+    </div>
+
+    <div class="form-group">
+      <label class="label">이메일</label>
+      <input type="email" name="email" class="input" value="{{ contact.email if contact and contact.email else '' }}">
+    </div>
+
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label class="label">사무실전화</label>
+        <input type="text" name="phone_office" class="input" value="{{ contact.phone_office if contact and contact.phone_office else '' }}">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="label">휴대폰</label>
+        <input type="text" name="phone_mobile" class="input" value="{{ contact.phone_mobile if contact and contact.phone_mobile else '' }}">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="label">팩스</label>
+      <input type="text" name="fax" class="input" value="{{ contact.fax if contact and contact.fax else '' }}">
+    </div>
+
+    <div class="form-group">
+      <label class="label">메모</label>
+      <textarea name="notes" class="input" rows="3">{{ contact.notes if contact and contact.notes else '' }}</textarea>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{{ '저장' if contact else '추가' }}</button>
+      {% if contact %}
+      <a href="{{ url_for('contact_detail', cid=contact.id) }}" class="btn btn-secondary">취소</a>
+      {% else %}
+      <a href="{{ url_for('contacts') }}" class="btn btn-secondary">취소</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+{% endblock %}

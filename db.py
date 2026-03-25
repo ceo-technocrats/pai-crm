@@ -210,6 +210,51 @@ def update_contact_notes(contact_id: int, notes: str) -> None:
                 (notes, contact_id),
             )
 
+
+def create_contact(data: dict) -> int:
+    """Insert a new contact. Returns the new contact ID."""
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO contacts
+                   (region, council, name, party, district, term,
+                    email, phone_office, phone_mobile, fax, notes)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                   RETURNING id""",
+                (
+                    data["region"], data["council"], data["name"],
+                    data.get("party"), data.get("district"),
+                    data.get("term") or None,
+                    data.get("email"), data.get("phone_office"),
+                    data.get("phone_mobile"), data.get("fax"),
+                    data.get("notes"),
+                ),
+            )
+            return cur.fetchone()["id"]
+
+
+def update_contact(contact_id: int, data: dict) -> None:
+    """Update all editable fields of a contact."""
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE contacts SET
+                    region=%s, council=%s, name=%s, party=%s, district=%s,
+                    term=%s, email=%s, phone_office=%s, phone_mobile=%s,
+                    fax=%s, notes=%s
+                   WHERE id=%s""",
+                (
+                    data["region"], data["council"], data["name"],
+                    data.get("party"), data.get("district"),
+                    data.get("term") or None,
+                    data.get("email"), data.get("phone_office"),
+                    data.get("phone_mobile"), data.get("fax"),
+                    data.get("notes"),
+                    contact_id,
+                ),
+            )
+
+
 # ── Outreach log ───────────────────────────────────────────────────────────────
 
 def log_outreach(
