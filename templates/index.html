@@ -47,6 +47,40 @@
 </div>
 
 <div class="section-header">
+  <h2>최근 이메일</h2>
+</div>
+{% if data.recent_emails %}
+<table class="table">
+  <thead>
+    <tr>
+      <th>방향</th>
+      <th>연락처</th>
+      <th>제목</th>
+      <th>시간</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for e in data.recent_emails %}
+    <tr>
+      <td>
+        {% if e.direction == 'outbound' %}
+        <span class="badge badge-outbound">발신 →</span>
+        {% else %}
+        <span class="badge badge-inbound">수신 ←</span>
+        {% endif %}
+      </td>
+      <td><a href="{{ url_for('contact_detail', cid=e.contact_id) }}">{{ e.contact_name }}</a></td>
+      <td>{{ e.subject or '(제목 없음)' }}</td>
+      <td>{{ e.logged_at.strftime('%m/%d %H:%M') if e.logged_at else '—' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="text-muted">이메일 기록이 없습니다.</p>
+{% endif %}
+
+<div class="section-header">
   <h2>빠른 액션</h2>
 </div>
 <div class="quick-actions">

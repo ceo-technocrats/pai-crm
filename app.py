@@ -70,6 +70,7 @@ def create_app():
             "due_today": len(raw["due_today"]),
             "sends_today": raw["sends_today"],
             "pipeline": pipeline_list,
+            "recent_emails": raw.get("recent_emails", []),
         }
         return render_template(
             "index.html",

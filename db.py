@@ -422,11 +422,23 @@ def dashboard_data() -> dict:
             )
             sends = cur.fetchone()["n"]
 
+            cur.execute(
+                """SELECT o.direction, o.subject, o.logged_at, o.notes,
+                          c.name AS contact_name, c.id AS contact_id
+                   FROM outreach_log o
+                   JOIN contacts c ON c.id = o.contact_id
+                   WHERE o.channel = 'email'
+                   ORDER BY o.logged_at DESC NULLS LAST
+                   LIMIT 20"""
+            )
+            recent_emails = cur.fetchall()
+
     return {
         "overdue": overdue,
         "due_today": due_today,
         "pipeline": pipeline,
         "sends_today": sends,
+        "recent_emails": recent_emails,
     }
 
 # ── Analytics ──────────────────────────────────────────────────────────────────
