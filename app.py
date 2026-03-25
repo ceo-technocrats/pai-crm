@@ -57,8 +57,20 @@ def create_app():
     @app.route("/")
     @login_required
     def index():
-        data = db.dashboard_data()
+        raw = db.dashboard_data()
         gmail_ok = gmail.has_token()
+        pipeline_list = [
+            {"status": s, "count": raw["pipeline"].get(s, 0)}
+            for s in db.STATUSES
+        ]
+        total = sum(p["count"] for p in pipeline_list)
+        data = {
+            "total": total,
+            "overdue": len(raw["overdue"]),
+            "due_today": len(raw["due_today"]),
+            "sends_today": raw["sends_today"],
+            "pipeline": pipeline_list,
+        }
         return render_template(
             "index.html",
             data=data,
