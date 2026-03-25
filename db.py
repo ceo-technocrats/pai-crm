@@ -258,6 +258,52 @@ def sends_today() -> int:
             )
             return cur.fetchone()["n"]
 
+# ── Gmail sync helpers ─────────────────────────────────────────────────────────
+
+def get_all_contact_emails() -> dict:
+    """Returns {email_lower: contact_id} for all contacts with email."""
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, LOWER(email) AS email FROM contacts WHERE email IS NOT NULL AND email != ''"
+            )
+            return {r["email"]: r["id"] for r in cur.fetchall()}
+
+
+def bulk_check_gmail_ids(gmail_ids: list) -> set:
+    """Returns set of gmail_message_ids that already exist in outreach_log."""
+    if not gmail_ids:
+        return set()
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT gmail_message_id FROM outreach_log WHERE gmail_message_id = ANY(%s)",
+                (gmail_ids,),
+            )
+            return {r["gmail_message_id"] for r in cur.fetchall()}
+
+
+def log_outreach_if_new(gmail_message_id: str, **kwargs) -> bool:
+    """Insert outreach log only if gmail_message_id doesn't already exist. Returns True if inserted."""
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO outreach_log
+                   (contact_id, channel, direction, subject, body, gmail_message_id, notes, logged_at)
+                   SELECT %s, %s, %s, %s, %s, %s, %s, %s
+                   WHERE NOT EXISTS (
+                     SELECT 1 FROM outreach_log WHERE gmail_message_id = %s
+                   )""",
+                (
+                    kwargs["contact_id"], kwargs["channel"], kwargs["direction"],
+                    kwargs.get("subject"), kwargs.get("body"), gmail_message_id,
+                    kwargs.get("notes"), kwargs.get("logged_at"),
+                    gmail_message_id,
+                ),
+            )
+            return cur.rowcount > 0
+
+
 # ── Tags ───────────────────────────────────────────────────────────────────────
 
 def get_contact_tags(contact_id: int) -> list:

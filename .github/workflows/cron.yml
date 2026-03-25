@@ -1,0 +1,23 @@
+name: CRM Cron Jobs
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  cron:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send queued emails
+        run: |
+          curl -s -X POST \
+            "${{ secrets.APP_URL }}/cron/send" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json"
+
+      - name: Sync Gmail inbox
+        run: |
+          curl -s -X POST \
+            "${{ secrets.APP_URL }}/cron/sync-inbox" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json"

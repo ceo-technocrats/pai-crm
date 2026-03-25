@@ -1,5 +1,5 @@
 """
-cron.py — Vercel Cron handler for bulk email send
+cron.py — Vercel Cron handlers
 
 POST /cron/send
   Auth: Authorization: Bearer <CRON_SECRET>
@@ -7,11 +7,10 @@ POST /cron/send
   Sends each via Gmail API, logs result, advances contact status on success.
   Returns: {"sent": N, "failed": N, "remaining": N}
 
-Per-send behavior:
-  success  → log outreach, advance status if 미연락, mark queue row sent
-  400 err  → mark failed, log bounce note, do NOT advance status
-  other err → mark failed, do NOT advance status, continue to next row
-  daily limit hit → mark remaining rows skipped, stop
+POST /cron/sync-inbox
+  Auth: Authorization: Bearer <CRON_SECRET>
+  Syncs Gmail inbox — matches emails from/to CRM contacts, logs to outreach_log.
+  Returns: {"synced": N, "checked": N}
 """
 
 import os
@@ -137,3 +136,20 @@ def cron_send():
     remaining = db.get_queue_status(rows[0]["job_id"])["pending"] if rows else 0
 
     return jsonify({"sent": sent, "failed": failed, "remaining": remaining})
+
+
+@cron_bp.route("/cron/sync-inbox", methods=["POST"])
+def cron_sync_inbox():
+    """Sync Gmail inbox with CRM contacts."""
+    secret = os.environ.get("CRON_SECRET", "")
+    auth_header = request.headers.get("Authorization", "")
+    if not secret or auth_header != f"Bearer {secret}":
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        result = gmail.sync_inbox()
+        return jsonify(result)
+    except RefreshError:
+        return jsonify({"error": "Gmail token expired. Re-authenticate at /auth/google."}), 503
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
