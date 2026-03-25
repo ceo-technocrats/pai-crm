@@ -29,6 +29,7 @@ import csv
 import uuid
 import json
 import time
+from datetime import date
 
 from flask import (
     Flask, render_template, request, redirect, url_for,
@@ -240,8 +241,12 @@ def create_app():
     @app.route("/pipeline")
     @login_required
     def pipeline():
-        columns = db.pipeline_data()
-        return render_template("pipeline.html", columns=columns, csrf_token=get_csrf_token())
+        raw = db.pipeline_data()
+        columns = [
+            {"status": s, "contacts": raw[s]["rows"], "overflow": raw[s]["overflow"]}
+            for s in db.STATUSES
+        ]
+        return render_template("pipeline.html", columns=columns, today=str(date.today()), csrf_token=get_csrf_token())
 
     # ── Bulk send ──────────────────────────────────────────────────────────────
 
