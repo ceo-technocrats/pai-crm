@@ -200,9 +200,20 @@ def create_app():
     def update_status(cid):
         target = request.form.get("status", "")
         close_outcome = request.form.get("close_outcome") or None
-        follow_up_date = request.form.get("follow_up_date") or None
+        contact = db.get_contact(cid)
+        if not contact:
+            abort(404)
+        old_status = contact.get("status", "")
         try:
-            db.update_contact_status(cid, target, close_outcome, follow_up_date)
+            db.update_contact_status(cid, target, close_outcome)
+            if old_status != target:
+                db.log_outreach(
+                    contact_id=cid,
+                    channel="other",
+                    direction="outbound",
+                    subject=f"상태 변경: {old_status} → {target}",
+                    notes=f"클로즈 결과: {close_outcome}" if close_outcome else None,
+                )
             flash("상태가 업데이트되었습니다.", "success")
         except ValueError as e:
             flash(str(e), "error")
@@ -215,11 +226,59 @@ def create_app():
     def api_update_status(cid):
         data = request.get_json(force=True)
         target = data.get("status", "")
+        contact = db.get_contact(cid)
+        if not contact:
+            return jsonify({"ok": False, "error": "not found"}), 404
+        old_status = contact.get("status", "")
         try:
             db.update_contact_status(cid, target)
+            if old_status != target:
+                db.log_outreach(
+                    contact_id=cid,
+                    channel="other",
+                    direction="outbound",
+                    subject=f"상태 변경: {old_status} → {target}",
+                )
             return jsonify({"ok": True})
         except (ValueError, KeyError) as e:
             return jsonify({"ok": False, "error": str(e)}), 400
+
+    # ── Contact API (quick-view) ─────────────────────────────────────────────
+
+    @app.route("/api/contacts/<int:cid>")
+    @login_required
+    def api_contact(cid):
+        contact = db.get_contact(cid)
+        if not contact:
+            return jsonify({"error": "not found"}), 404
+        log = db.get_outreach_log(cid)
+        tags = db.get_contact_tags(cid)
+        return jsonify({
+            "contact": {
+                "id": contact["id"],
+                "name": contact["name"],
+                "region": contact["region"],
+                "council": contact["council"],
+                "party": contact.get("party"),
+                "district": contact.get("district"),
+                "email": contact.get("email"),
+                "phone_office": contact.get("phone_office"),
+                "phone_mobile": contact.get("phone_mobile"),
+                "status": contact["status"],
+                "notes": contact.get("notes"),
+            },
+            "tags": [t["name"] for t in tags],
+            "log": [
+                {
+                    "channel": e["channel"],
+                    "direction": e["direction"],
+                    "subject": e.get("subject"),
+                    "notes": e.get("notes"),
+                    "date": e["logged_at"].strftime("%m/%d %H:%M") if e.get("logged_at") else "",
+                }
+                for e in log[:10]
+            ],
+        })
 
     # ── Notes update ───────────────────────────────────────────────────────────
 

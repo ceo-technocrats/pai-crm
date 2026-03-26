@@ -211,7 +211,31 @@ a:hover { text-decoration: underline; }
 .kanban-card:active { cursor: grabbing; }
 .kanban-card.dragging { opacity: 0.4; }
 .kanban-cards.drag-over { background: #e0f2fe; border-radius: 8px; min-height: 80px; }
-.kanban-card-link { text-decoration: none; color: inherit; display: block; }
+.kanban-card-link { text-decoration: none; color: inherit; display: block; flex: 1; }
+.kanban-card-top { display: flex; align-items: flex-start; gap: 4px; }
+.qv-btn {
+  background: none; border: none; cursor: pointer; font-size: 14px;
+  opacity: 0.3; padding: 0 2px; flex-shrink: 0;
+}
+.kanban-card:hover .qv-btn { opacity: 0.8; }
+
+/* ── Quick-view modal ────────────────────────────────────────────────────── */
+.qv-modal {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.4); display: flex;
+  align-items: center; justify-content: center;
+}
+.qv-content {
+  background: #fff; border-radius: 12px; padding: 24px;
+  width: 480px; max-width: 90vw; max-height: 80vh; overflow-y: auto;
+  position: relative; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.qv-close {
+  position: absolute; top: 12px; right: 16px;
+  background: none; border: none; font-size: 24px; cursor: pointer; color: #999;
+}
+.qv-close:hover { color: #333; }
+.qv-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 
 /* ── Stage list ───────────────────────────────────────────────────────────── */
 .stage-list { list-style: none; margin: 0 0 12px; padding: 0; }
@@ -390,8 +414,11 @@ a:hover { text-decoration: underline; }
 
 /* ── Two-col layout ───────────────────────────────────────────────────────── */
 .two-col { display: flex; gap: 16px; align-items: flex-start; }
+.detail-grid { display: flex; gap: 16px; align-items: flex-start; }
 .col-main { flex: 1; min-width: 0; }
-.col-side { width: 280px; flex-shrink: 0; }
+.col-side { width: 340px; flex-shrink: 0; }
+.card-row { display: flex; gap: 16px; }
+.card-half { flex: 1; min-width: 0; }
 
 /* ── Analytics bar ────────────────────────────────────────────────────────── */
 .bar-wrap { display: flex; align-items: center; gap: 8px; }
@@ -453,8 +480,9 @@ a:hover { text-decoration: underline; }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .two-col { flex-direction: column; }
+  .two-col, .detail-grid { flex-direction: column; }
   .col-side { width: 100%; }
+  .card-row { flex-direction: column; }
   .kanban-col { flex: 0 0 180px; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .nav-links { display: none; }

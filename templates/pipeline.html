@@ -15,22 +15,25 @@
     <div class="kanban-cards" data-status="{{ col.status }}">
       {% for c in col.contacts %}
       <div class="kanban-card" draggable="true" data-id="{{ c.id }}">
-        <a href="{{ url_for('contact_detail', cid=c.id) }}" class="kanban-card-link">
-          <div class="kanban-card-name">{{ c.name }}</div>
-          <div class="kanban-card-meta">{{ c.council }} · {{ c.region }}</div>
-          {% if c.follow_up_date %}
-          <div class="kanban-card-followup {% if c.follow_up_date < today %}overdue{% endif %}">
-            📅 {{ c.follow_up_date }}
-          </div>
-          {% endif %}
-          {% if c.tag_names %}
-          <div class="kanban-card-tags">
-            {% for tag in c.tag_names.split(',') if tag.strip() %}
-            <span class="tag tag-sm">{{ tag.strip() }}</span>
-            {% endfor %}
-          </div>
-          {% endif %}
-        </a>
+        <div class="kanban-card-top">
+          <a href="{{ url_for('contact_detail', cid=c.id) }}" class="kanban-card-link">
+            <div class="kanban-card-name">{{ c.name }}</div>
+            <div class="kanban-card-meta">{{ c.council }} · {{ c.region }}</div>
+          </a>
+          <button class="qv-btn" onclick="event.stopPropagation();quickView({{ c.id }})" title="퀵뷰">👁</button>
+        </div>
+        {% if c.follow_up_date %}
+        <div class="kanban-card-followup {% if c.follow_up_date < today %}overdue{% endif %}">
+          📅 {{ c.follow_up_date }}
+        </div>
+        {% endif %}
+        {% if c.tag_names %}
+        <div class="kanban-card-tags">
+          {% for tag in c.tag_names.split(',') if tag.strip() %}
+          <span class="tag tag-sm">{{ tag.strip() }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
       </div>
       {% endfor %}
       {% if col.overflow %}
@@ -150,5 +153,59 @@
     });
   }
 })();
+
+function quickView(cid) {
+  const modal = document.getElementById('qv-modal');
+  const body = document.getElementById('qv-body');
+  body.innerHTML = '<p>로딩 중...</p>';
+  modal.style.display = 'flex';
+
+  fetch(`/api/contacts/${cid}`)
+    .then(r => r.json())
+    .then(data => {
+      const c = data.contact;
+      const tags = data.tags.length ? data.tags.map(t => `<span class="tag tag-sm">${t}</span>`).join(' ') : '—';
+      const logHtml = data.log.length
+        ? data.log.map(e => `
+          <li class="activity-entry">
+            <span class="activity-channel channel-${e.channel}">${e.channel}</span>
+            <span class="activity-dir">${e.direction === 'outbound' ? '→' : '←'}</span>
+            <span class="activity-date">${e.date}</span>
+            ${e.subject ? `<div class="activity-subject">${e.subject}</div>` : ''}
+          </li>`).join('')
+        : '<p class="text-muted">활동 이력 없음</p>';
+
+      body.innerHTML = `
+        <div class="qv-header">
+          <h2>${c.name} <span class="status-badge status-${c.status}">${c.status}</span></h2>
+          <a href="/contacts/${c.id}" class="btn btn-sm btn-primary">상세 보기</a>
+        </div>
+        <dl class="info-grid">
+          <dt>지역</dt><dd>${c.region}</dd>
+          <dt>의회</dt><dd>${c.council}</dd>
+          <dt>정당</dt><dd>${c.party || '—'}</dd>
+          <dt>이메일</dt><dd>${c.email || '—'}</dd>
+          <dt>전화</dt><dd>${c.phone_office || c.phone_mobile || '—'}</dd>
+        </dl>
+        <div style="margin:8px 0"><strong>태그:</strong> ${tags}</div>
+        ${c.notes ? `<div style="margin:8px 0"><strong>메모:</strong> ${c.notes}</div>` : ''}
+        <h3 style="margin-top:12px">최근 활동</h3>
+        <ul class="activity-log">${logHtml}</ul>
+      `;
+    })
+    .catch(() => { body.innerHTML = '<p>로딩 실패</p>'; });
+}
+
+function closeQv() {
+  document.getElementById('qv-modal').style.display = 'none';
+}
 </script>
+
+<!-- Quick-view modal -->
+<div id="qv-modal" class="qv-modal" style="display:none" onclick="if(event.target===this)closeQv()">
+  <div class="qv-content">
+    <button class="qv-close" onclick="closeQv()">×</button>
+    <div id="qv-body"></div>
+  </div>
+</div>
 {% endblock %}
