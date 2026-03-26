@@ -7,29 +7,31 @@
 
 <div class="kanban">
   {% for col in columns %}
-  <div class="kanban-col">
+  <div class="kanban-col" data-status="{{ col.status }}">
     <div class="kanban-col-header">
       <span class="kanban-col-title">{{ col.status }}</span>
-      <span class="kanban-col-count">{{ col.contacts | length }}{% if col.overflow %}+{% endif %}</span>
+      <span class="kanban-col-count" id="count-{{ loop.index }}">{{ col.contacts | length }}{% if col.overflow %}+{% endif %}</span>
     </div>
-    <div class="kanban-cards">
+    <div class="kanban-cards" data-status="{{ col.status }}">
       {% for c in col.contacts %}
-      <a href="{{ url_for('contact_detail', cid=c.id) }}" class="kanban-card">
-        <div class="kanban-card-name">{{ c.name }}</div>
-        <div class="kanban-card-meta">{{ c.council }} · {{ c.region }}</div>
-        {% if c.follow_up_date %}
-        <div class="kanban-card-followup {% if c.follow_up_date < today %}overdue{% endif %}">
-          📅 {{ c.follow_up_date }}
-        </div>
-        {% endif %}
-        {% if c.tag_names %}
-        <div class="kanban-card-tags">
-          {% for tag in c.tag_names.split(',') if tag.strip() %}
-          <span class="tag tag-sm">{{ tag.strip() }}</span>
-          {% endfor %}
-        </div>
-        {% endif %}
-      </a>
+      <div class="kanban-card" draggable="true" data-id="{{ c.id }}">
+        <a href="{{ url_for('contact_detail', cid=c.id) }}" class="kanban-card-link">
+          <div class="kanban-card-name">{{ c.name }}</div>
+          <div class="kanban-card-meta">{{ c.council }} · {{ c.region }}</div>
+          {% if c.follow_up_date %}
+          <div class="kanban-card-followup {% if c.follow_up_date < today %}overdue{% endif %}">
+            📅 {{ c.follow_up_date }}
+          </div>
+          {% endif %}
+          {% if c.tag_names %}
+          <div class="kanban-card-tags">
+            {% for tag in c.tag_names.split(',') if tag.strip() %}
+            <span class="tag tag-sm">{{ tag.strip() }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </a>
+      </div>
       {% endfor %}
       {% if col.overflow %}
       <a href="{{ url_for('contacts') }}?status={{ col.status }}" class="kanban-more">
@@ -40,4 +42,113 @@
   </div>
   {% endfor %}
 </div>
+
+<script>
+(function() {
+  let dragCard = null;
+
+  document.querySelectorAll('.kanban-card').forEach(card => {
+    card.addEventListener('dragstart', e => {
+      dragCard = card;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      // Prevent link navigation on drag
+      e.dataTransfer.setData('text/plain', card.dataset.id);
+    });
+
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      document.querySelectorAll('.kanban-cards').forEach(col => col.classList.remove('drag-over'));
+      dragCard = null;
+    });
+
+    // Prevent click navigation during drag
+    let isDragging = false;
+    card.addEventListener('mousedown', () => { isDragging = false; });
+    card.addEventListener('mousemove', () => { isDragging = true; });
+    card.querySelector('.kanban-card-link').addEventListener('click', e => {
+      if (isDragging) e.preventDefault();
+    });
+  });
+
+  document.querySelectorAll('.kanban-cards').forEach(col => {
+    col.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      col.classList.add('drag-over');
+
+      // Position within column
+      const afterEl = getDragAfterElement(col, e.clientY);
+      if (afterEl) {
+        col.insertBefore(dragCard, afterEl);
+      } else {
+        const more = col.querySelector('.kanban-more');
+        if (more) {
+          col.insertBefore(dragCard, more);
+        } else {
+          col.appendChild(dragCard);
+        }
+      }
+    });
+
+    col.addEventListener('dragleave', e => {
+      if (!col.contains(e.relatedTarget)) {
+        col.classList.remove('drag-over');
+      }
+    });
+
+    col.addEventListener('drop', e => {
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      if (!dragCard) return;
+
+      const contactId = dragCard.dataset.id;
+      const newStatus = col.dataset.status;
+
+      fetch(`/api/contacts/${contactId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (!data.ok) {
+          alert(data.error || '상태 변경 실패');
+          location.reload();
+        }
+        // Update counts
+        updateCounts();
+      })
+      .catch(() => {
+        alert('네트워크 오류');
+        location.reload();
+      });
+    });
+  });
+
+  function getDragAfterElement(col, y) {
+    const cards = [...col.querySelectorAll('.kanban-card:not(.dragging)')];
+    let closest = null;
+    let closestOffset = Number.NEGATIVE_INFINITY;
+
+    cards.forEach(card => {
+      const box = card.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closestOffset) {
+        closestOffset = offset;
+        closest = card;
+      }
+    });
+    return closest;
+  }
+
+  function updateCounts() {
+    document.querySelectorAll('.kanban-col').forEach(col => {
+      const cards = col.querySelectorAll('.kanban-card').length;
+      const counter = col.querySelector('.kanban-col-count');
+      if (counter) counter.textContent = cards;
+    });
+  }
+})();
+</script>
 {% endblock %}

@@ -208,6 +208,19 @@ def create_app():
             flash(str(e), "error")
         return redirect(url_for("contact_detail", cid=cid))
 
+    # ── Status update (API — for Kanban drag-and-drop) ───────────────────────
+
+    @app.route("/api/contacts/<int:cid>/status", methods=["POST"])
+    @login_required
+    def api_update_status(cid):
+        data = request.get_json(force=True)
+        target = data.get("status", "")
+        try:
+            db.update_contact_status(cid, target)
+            return jsonify({"ok": True})
+        except (ValueError, KeyError) as e:
+            return jsonify({"ok": False, "error": str(e)}), 400
+
     # ── Notes update ───────────────────────────────────────────────────────────
 
     @app.route("/contacts/<int:cid>/notes", methods=["POST"])

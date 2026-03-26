@@ -206,6 +206,13 @@ a:hover { text-decoration: underline; }
 .status-데모예약 { background: #fef3c7; color: #92400e; }
 .status-클로즈  { background: #ede9fe; color: #4c1d95; }
 
+/* ── Kanban drag-and-drop ─────────────────────────────────────────────────── */
+.kanban-card { cursor: grab; }
+.kanban-card:active { cursor: grabbing; }
+.kanban-card.dragging { opacity: 0.4; }
+.kanban-cards.drag-over { background: #e0f2fe; border-radius: 8px; min-height: 80px; }
+.kanban-card-link { text-decoration: none; color: inherit; display: block; }
+
 /* ── Stage list ───────────────────────────────────────────────────────────── */
 .stage-list { list-style: none; margin: 0 0 12px; padding: 0; }
 .stage-item {
