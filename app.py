@@ -475,9 +475,11 @@ def create_app():
                 cur.execute("SELECT * FROM templates ORDER BY is_default DESC, id")
                 templates = cur.fetchall()
         gmail_ok = gmail.has_token()
+        stages = db.get_pipeline_stages()
         return render_template(
             "settings.html",
             templates=templates,
+            stages=stages,
             gmail_ok=gmail_ok,
             csrf_token=get_csrf_token(),
         )
@@ -494,6 +496,59 @@ def create_app():
             return redirect(url_for("settings"))
         db.save_template(name, subject, body)
         flash("템플릿이 저장되었습니다.", "success")
+        return redirect(url_for("settings"))
+
+    # ── Pipeline stage management ────────────────────────────────────────────
+
+    @app.route("/settings/stages/add", methods=["POST"])
+    @login_required
+    def add_stage():
+        csrf_protect_check()
+        name = request.form.get("name", "").strip()
+        if not name:
+            flash("스테이지 이름을 입력하세요.", "error")
+            return redirect(url_for("settings"))
+        try:
+            db.add_pipeline_stage(name)
+            flash(f"'{name}' 스테이지가 추가되었습니다.", "success")
+        except Exception:
+            flash("이미 존재하는 스테이지 이름입니다.", "error")
+        return redirect(url_for("settings"))
+
+    @app.route("/settings/stages/<int:stage_id>/delete", methods=["POST"])
+    @login_required
+    def delete_stage(stage_id):
+        csrf_protect_check()
+        db.delete_pipeline_stage(stage_id)
+        flash("스테이지가 삭제되었습니다.", "success")
+        return redirect(url_for("settings"))
+
+    @app.route("/settings/stages/<int:stage_id>/rename", methods=["POST"])
+    @login_required
+    def rename_stage(stage_id):
+        csrf_protect_check()
+        new_name = request.form.get("name", "").strip()
+        if not new_name:
+            flash("새 이름을 입력하세요.", "error")
+            return redirect(url_for("settings"))
+        try:
+            db.rename_pipeline_stage(stage_id, new_name)
+            flash("스테이지 이름이 변경되었습니다.", "success")
+        except Exception:
+            flash("이미 존재하는 스테이지 이름입니다.", "error")
+        return redirect(url_for("settings"))
+
+    @app.route("/settings/stages/reorder", methods=["POST"])
+    @login_required
+    def reorder_stages():
+        csrf_protect_check()
+        ids_str = request.form.get("order", "")
+        try:
+            ids = [int(x) for x in ids_str.split(",") if x.strip()]
+            db.reorder_pipeline_stages(ids)
+            flash("순서가 변경되었습니다.", "success")
+        except Exception:
+            flash("순서 변경에 실패했습니다.", "error")
         return redirect(url_for("settings"))
 
     # ── Error handlers ─────────────────────────────────────────────────────────

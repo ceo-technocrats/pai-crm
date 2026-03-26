@@ -48,23 +48,116 @@ def db_conn():
 
 # ── State machine ──────────────────────────────────────────────────────────────
 
-STATUSES = ["미연락", "연락함", "답변옴", "데모예약", "클로즈"]
+# Fallback if DB is empty
+_DEFAULT_STATUSES = ["미연락", "연락함", "답변옴", "데모예약", "클로즈"]
 
-VALID_TRANSITIONS = {
-    "미연락":  {"연락함", "미연락"},
-    "연락함":  {"답변옴", "연락함", "미연락"},
-    "답변옴":  {"데모예약", "미연락"},
-    "데모예약": {"클로즈", "미연락"},
-    "클로즈":  {"미연락"},
-}
+_statuses_cache = None
+_statuses_cache_time = 0
+
+
+def get_statuses() -> list[str]:
+    """Load pipeline stages from DB, ordered by position. Cached for 60s."""
+    import time
+    global _statuses_cache, _statuses_cache_time
+    now = time.time()
+    if _statuses_cache and now - _statuses_cache_time < 60:
+        return _statuses_cache
+    try:
+        with db_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT name FROM pipeline_stages ORDER BY position")
+                rows = cur.fetchall()
+                result = [r["name"] for r in rows] if rows else _DEFAULT_STATUSES
+    except Exception:
+        result = _DEFAULT_STATUSES
+    _statuses_cache = result
+    _statuses_cache_time = now
+    return result
+
+
+# Keep STATUSES as a property-like accessor for backward compatibility
+class _StatusesAccessor(list):
+    """List that refreshes from DB on access."""
+    def __iter__(self):
+        return iter(get_statuses())
+    def __len__(self):
+        return len(get_statuses())
+    def __getitem__(self, i):
+        return get_statuses()[i]
+    def __contains__(self, item):
+        return item in get_statuses()
+
+STATUSES = _StatusesAccessor()
+
 
 def validate_transition(current: str, target: str, close_outcome: str = None) -> None:
     """Raise ValueError if the transition is invalid."""
-    allowed = VALID_TRANSITIONS.get(current, set())
-    if target not in allowed:
-        raise ValueError("유효하지 않은 상태 전환입니다")
-    if target == "클로즈" and close_outcome not in ("won", "lost"):
-        raise ValueError("클로즈 결과를 선택해주세요 (성공/실패)")
+    statuses = get_statuses()
+    # Allow moving to any stage, or reset to first stage
+    if target not in statuses:
+        raise ValueError("유효하지 않은 상태입니다")
+
+
+# ── Pipeline stage management ─────────────────────────────────────────────────
+
+def get_pipeline_stages() -> list[dict]:
+    """Return all stages ordered by position."""
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM pipeline_stages ORDER BY position")
+            return cur.fetchall()
+
+
+def add_pipeline_stage(name: str) -> int:
+    """Add a new stage at the end. Returns new stage ID."""
+    global _statuses_cache
+    _statuses_cache = None
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COALESCE(MAX(position), -1) + 1 AS next_pos FROM pipeline_stages")
+            next_pos = cur.fetchone()["next_pos"]
+            cur.execute(
+                "INSERT INTO pipeline_stages (name, position) VALUES (%s, %s) RETURNING id",
+                (name, next_pos),
+            )
+            return cur.fetchone()["id"]
+
+
+def delete_pipeline_stage(stage_id: int) -> None:
+    """Delete a stage. Contacts with this status keep their status string."""
+    global _statuses_cache
+    _statuses_cache = None
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM pipeline_stages WHERE id = %s", (stage_id,))
+
+
+def reorder_pipeline_stages(stage_ids: list[int]) -> None:
+    """Reorder stages by the given list of IDs."""
+    global _statuses_cache
+    _statuses_cache = None
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            for pos, sid in enumerate(stage_ids):
+                cur.execute(
+                    "UPDATE pipeline_stages SET position = %s WHERE id = %s",
+                    (pos, sid),
+                )
+
+
+def rename_pipeline_stage(stage_id: int, new_name: str) -> None:
+    """Rename a stage. Also updates all contacts with the old name."""
+    global _statuses_cache
+    _statuses_cache = None
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT name FROM pipeline_stages WHERE id = %s", (stage_id,))
+            row = cur.fetchone()
+            if not row:
+                return
+            old_name = row["name"]
+            cur.execute("UPDATE pipeline_stages SET name = %s WHERE id = %s", (new_name, stage_id))
+            cur.execute("UPDATE contacts SET status = %s WHERE status = %s", (new_name, old_name))
 
 # ── Settings ───────────────────────────────────────────────────────────────────
 

@@ -17,6 +17,86 @@
   {% endif %}
 </div>
 
+<!-- Pipeline stages -->
+<div class="card">
+  <h2>파이프라인 스테이지</h2>
+  <p class="text-muted">드래그하여 순서 변경, 이름 수정, 추가/삭제가 가능합니다.</p>
+
+  <form method="post" action="{{ url_for('reorder_stages') }}" id="stages-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="order" id="stage-order">
+
+    <ul class="stage-list" id="stage-list">
+      {% for s in stages %}
+      <li class="stage-item" data-id="{{ s.id }}">
+        <span class="stage-drag">☰</span>
+        <span class="stage-name">{{ s.name }}</span>
+        <div class="stage-actions">
+          <form method="post" action="{{ url_for('rename_stage', stage_id=s.id) }}" style="display:inline" class="rename-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="text" name="name" placeholder="새 이름" class="input input-sm" style="width:100px">
+            <button type="submit" class="btn btn-sm btn-secondary">이름변경</button>
+          </form>
+          <form method="post" action="{{ url_for('delete_stage', stage_id=s.id) }}" style="display:inline"
+                onsubmit="return confirm('정말 삭제하시겠습니까?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="btn btn-sm btn-danger">삭제</button>
+          </form>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+
+    <button type="submit" class="btn btn-secondary" onclick="saveOrder()">순서 저장</button>
+  </form>
+
+  <h3 style="margin-top:16px">스테이지 추가</h3>
+  <form method="post" action="{{ url_for('add_stage') }}" style="display:flex;gap:8px;align-items:end">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="text" name="name" class="input" placeholder="새 스테이지 이름" required style="flex:1">
+    <button type="submit" class="btn btn-primary">추가</button>
+  </form>
+</div>
+
+<script>
+// Simple drag-and-drop reorder
+const list = document.getElementById('stage-list');
+let dragItem = null;
+
+list.addEventListener('dragstart', e => {
+  dragItem = e.target.closest('.stage-item');
+  if (dragItem) dragItem.style.opacity = '0.5';
+});
+list.addEventListener('dragend', e => {
+  if (dragItem) dragItem.style.opacity = '1';
+  dragItem = null;
+});
+list.addEventListener('dragover', e => {
+  e.preventDefault();
+  const target = e.target.closest('.stage-item');
+  if (target && target !== dragItem) {
+    const rect = target.getBoundingClientRect();
+    const mid = rect.top + rect.height / 2;
+    if (e.clientY < mid) {
+      list.insertBefore(dragItem, target);
+    } else {
+      list.insertBefore(dragItem, target.nextSibling);
+    }
+  }
+});
+
+// Make items draggable
+document.querySelectorAll('.stage-item').forEach(item => {
+  item.draggable = true;
+});
+
+function saveOrder() {
+  const items = document.querySelectorAll('.stage-item');
+  const ids = Array.from(items).map(i => i.dataset.id);
+  document.getElementById('stage-order').value = ids.join(',');
+}
+</script>
+
 <!-- Email templates -->
 <div class="card">
   <h2>이메일 템플릿</h2>
