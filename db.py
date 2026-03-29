@@ -51,28 +51,17 @@ def db_conn():
 # Fallback if DB is empty
 _DEFAULT_STATUSES = ["미연락", "연락함", "답변옴", "데모예약", "클로즈"]
 
-_statuses_cache = None
-_statuses_cache_time = 0
-
 
 def get_statuses() -> list[str]:
-    """Load pipeline stages from DB, ordered by position. Cached for 60s."""
-    import time
-    global _statuses_cache, _statuses_cache_time
-    now = time.time()
-    if _statuses_cache and now - _statuses_cache_time < 60:
-        return _statuses_cache
+    """Load pipeline stages from DB, ordered by position. No cache — serverless has no shared memory."""
     try:
         with db_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT name FROM pipeline_stages ORDER BY position")
                 rows = cur.fetchall()
-                result = [r["name"] for r in rows] if rows else _DEFAULT_STATUSES
+                return [r["name"] for r in rows] if rows else _DEFAULT_STATUSES
     except Exception:
-        result = _DEFAULT_STATUSES
-    _statuses_cache = result
-    _statuses_cache_time = now
-    return result
+        return _DEFAULT_STATUSES
 
 
 # Keep STATUSES as a property-like accessor for backward compatibility
@@ -110,8 +99,7 @@ def get_pipeline_stages() -> list[dict]:
 
 def add_pipeline_stage(name: str) -> int:
     """Add a new stage at the end. Returns new stage ID."""
-    global _statuses_cache
-    _statuses_cache = None
+
     with db_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT COALESCE(MAX(position), -1) + 1 AS next_pos FROM pipeline_stages")
@@ -125,8 +113,7 @@ def add_pipeline_stage(name: str) -> int:
 
 def delete_pipeline_stage(stage_id: int) -> None:
     """Delete a stage. Contacts with this status keep their status string."""
-    global _statuses_cache
-    _statuses_cache = None
+
     with db_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM pipeline_stages WHERE id = %s", (stage_id,))
@@ -134,8 +121,7 @@ def delete_pipeline_stage(stage_id: int) -> None:
 
 def reorder_pipeline_stages(stage_ids: list[int]) -> None:
     """Reorder stages by the given list of IDs."""
-    global _statuses_cache
-    _statuses_cache = None
+
     with db_conn() as conn:
         with conn.cursor() as cur:
             for pos, sid in enumerate(stage_ids):
@@ -147,8 +133,7 @@ def reorder_pipeline_stages(stage_ids: list[int]) -> None:
 
 def rename_pipeline_stage(stage_id: int, new_name: str) -> None:
     """Rename a stage. Also updates all contacts with the old name."""
-    global _statuses_cache
-    _statuses_cache = None
+
     with db_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT name FROM pipeline_stages WHERE id = %s", (stage_id,))
