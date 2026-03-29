@@ -302,13 +302,24 @@ def create_app():
         subject   = request.form.get("subject", "")
         body      = request.form.get("body", "")
         notes     = request.form.get("notes", "")
+        logged_at = request.form.get("logged_at", "")
+        # If date provided, convert to datetime; otherwise use now
+        from datetime import datetime as dt
+        logged_at_dt = None
+        if logged_at:
+            try:
+                logged_at_dt = dt.fromisoformat(logged_at)
+            except Exception:
+                pass
+        channel_labels = {"email": "이메일", "kakao": "카톡/문자", "phone": "통화", "meeting": "미팅"}
         db.log_outreach(
             contact_id=cid,
             channel=channel,
             direction=direction,
-            subject=subject,
+            subject=subject or channel_labels.get(channel, channel),
             body=body,
             notes=notes,
+            logged_at=logged_at_dt,
         )
         flash("활동이 기록되었습니다.", "success")
         return redirect(url_for("contact_detail", cid=cid))

@@ -94,25 +94,25 @@
 
       <div class="card card-half">
         <h2>활동 기록</h2>
-        <form method="post" action="{{ url_for('log_activity', cid=contact.id) }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <div class="form-row">
-            <select name="channel" class="select" style="flex:1">
-              <option value="email">이메일</option>
-              <option value="phone">전화</option>
-              <option value="meeting">미팅</option>
-              <option value="kakao">카카오</option>
-              <option value="other">기타</option>
-            </select>
-            <select name="direction" class="select" style="flex:1">
-              <option value="outbound">발신</option>
-              <option value="inbound">수신</option>
-            </select>
-          </div>
-          <input type="text" name="subject" class="input" placeholder="제목 (선택)" style="margin-top:6px">
-          <textarea name="notes" rows="2" class="textarea" placeholder="메모" style="margin-top:6px"></textarea>
-          <button type="submit" class="btn btn-secondary" style="margin-top:8px">기록 추가</button>
-        </form>
+        <div class="quick-log-buttons">
+          <button class="btn-log btn-log--email" onclick="quickLog('email')">이메일</button>
+          <button class="btn-log btn-log--kakao" onclick="quickLog('kakao')">카톡/문자</button>
+          <button class="btn-log btn-log--phone" onclick="quickLog('phone')">통화</button>
+          <button class="btn-log btn-log--meeting" onclick="quickLog('meeting')">미팅</button>
+        </div>
+        <div id="quick-log-form" style="display:none;margin-top:8px">
+          <form method="post" action="{{ url_for('log_activity', cid=contact.id) }}" id="log-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="channel" id="log-channel">
+            <input type="hidden" name="direction" value="outbound">
+            <div class="form-row" style="gap:8px">
+              <input type="date" name="logged_at" id="log-date" class="input" style="flex:1">
+              <button type="submit" class="btn btn-primary" style="white-space:nowrap">기록</button>
+              <button type="button" class="btn btn-secondary" onclick="document.getElementById('quick-log-form').style.display='none'" style="white-space:nowrap">취소</button>
+            </div>
+            <span id="log-channel-label" style="font-size:12px;color:#666;margin-top:4px;display:block"></span>
+          </form>
+        </div>
       </div>
     </div>
   </div>
@@ -147,5 +147,15 @@ document.querySelector('select[name="status"]').addEventListener('change', funct
   document.getElementById('close-outcome-row').style.display =
     this.value === '클로즈' ? 'block' : 'none';
 });
+
+function quickLog(channel) {
+  const labels = {email:'이메일', kakao:'카톡/문자', phone:'통화', meeting:'미팅'};
+  document.getElementById('log-channel').value = channel;
+  document.getElementById('log-channel-label').textContent = labels[channel] + ' 기록';
+  // Default to today
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('log-date').value = today;
+  document.getElementById('quick-log-form').style.display = 'block';
+}
 </script>
 {% endblock %}
