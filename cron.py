@@ -153,3 +153,102 @@ def cron_sync_inbox():
         return jsonify({"error": "Gmail token expired. Re-authenticate at /auth/google."}), 503
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@cron_bp.route("/cron/campaign", methods=["POST"])
+def cron_campaign():
+    """Process due campaign enrollment steps."""
+    secret = os.environ.get("CRON_SECRET", "")
+    auth_header = request.headers.get("Authorization", "")
+    if not secret or auth_header != f"Bearer {secret}":
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        service = gmail.get_service()
+    except RefreshError:
+        return jsonify({"error": "Gmail token expired"}), 503
+
+    due = db.get_due_campaign_steps(50)
+    if not due:
+        return jsonify({"sent": 0, "failed": 0, "skipped": 0})
+
+    sent = 0
+    failed = 0
+    skipped = 0
+
+    for row in due:
+        if db.sends_today() >= DAILY_LIMIT:
+            skipped += len(due) - sent - failed
+            break
+
+        contact = db.get_contact(row["contact_id"])
+        if not contact or not contact.get("email", "").strip():
+            db.mark_enrollment_retry(row["enrollment_id"])
+            failed += 1
+            continue
+
+        from datetime import datetime, timezone
+        days_since = 0
+        if row.get("enrolled_at"):
+            days_since = (datetime.now(timezone.utc) - row["enrolled_at"]).days
+
+        campaign_context = {
+            "step_number": row["current_step"] + 1,
+            "campaign_name": row.get("campaign_name", ""),
+            "days_since_first_email": days_since,
+        }
+
+        with db.db_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT subject, body FROM templates WHERE id = %s", (row["template_id"],))
+                tmpl = cur.fetchone()
+
+        if not tmpl:
+            db.mark_enrollment_retry(row["enrollment_id"])
+            failed += 1
+            continue
+
+        subject = db.fill_campaign_template_vars(tmpl["subject"], contact, campaign_context)
+        body = db.fill_campaign_template_vars(tmpl["body"], contact, campaign_context)
+
+        try:
+            gmail_id = gmail.send_email(service, contact["email"], subject, body)
+        except HttpError as e:
+            status_code = int(e.resp.status)
+            paused = db.mark_enrollment_retry(row["enrollment_id"])
+            if paused:
+                db.log_outreach(
+                    contact_id=row["contact_id"],
+                    channel="email",
+                    direction="outbound",
+                    subject=subject,
+                    notes=f"캠페인 발송 실패 3회 — 일시중지 (HttpError {status_code})",
+                )
+            failed += 1
+            continue
+        except Exception:
+            db.mark_enrollment_retry(row["enrollment_id"])
+            failed += 1
+            continue
+
+        db.log_outreach(
+            contact_id=row["contact_id"],
+            channel="email",
+            direction="outbound",
+            subject=subject,
+            body=body,
+            gmail_message_id=gmail_id,
+            notes=f"[캠페인: {row.get('campaign_name', '')} — step {row['current_step'] + 1}]",
+        )
+
+        db.advance_enrollment(row["enrollment_id"], row["campaign_id"])
+
+        if row["current_step"] == 0 and contact.get("status") == "미연락":
+            try:
+                db.update_contact_status(row["contact_id"], "연락함")
+            except Exception:
+                pass
+
+        sent += 1
+
+    return jsonify({"sent": sent, "failed": failed, "skipped": skipped})
