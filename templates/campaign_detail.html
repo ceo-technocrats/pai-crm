@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}{{ campaign.name }} — PAI CRM{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <a href="{{ url_for('campaign_list') }}" class="back-link">← 캠페인 목록</a>
+    <h1>{{ campaign.name }} <span class="status-badge status-{{ campaign.status }}">{{ campaign.status }}</span></h1>
+  </div>
+  <div style="display:flex;gap:8px">
+    {% if campaign.status == 'draft' %}
+    <a href="{{ url_for('campaign_launch', cid=campaign.id) }}" class="btn btn-primary">시작</a>
+    <form method="post" action="{{ url_for('campaign_delete', cid=campaign.id) }}" style="display:inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-danger" onclick="return confirm('정말 삭제하시겠습니까?')">삭제</button>
+    </form>
+    {% elif campaign.status == 'active' %}
+    <form method="post" action="{{ url_for('campaign_pause', cid=campaign.id) }}" style="display:inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-warning">일시중지</button>
+    </form>
+    {% elif campaign.status == 'paused' %}
+    <form method="post" action="{{ url_for('campaign_resume', cid=campaign.id) }}" style="display:inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-primary">재개</button>
+    </form>
+    {% endif %}
+    <form method="post" action="{{ url_for('campaign_clone', cid=campaign.id) }}" style="display:inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-secondary">복사</button>
+    </form>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.total }}</div>
+    <div class="stat-label">등록</div>
+  </div>
+  <div class="stat-card stat-card--info">
+    <div class="stat-value">{{ stats.active }}</div>
+    <div class="stat-label">진행 중</div>
+  </div>
+  <div class="stat-card stat-card--success">
+    <div class="stat-value">{{ stats.replied }}</div>
+    <div class="stat-label">답변</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.completed }}</div>
+    <div class="stat-label">완료</div>
+  </div>
+  <div class="stat-card stat-card--warning">
+    <div class="stat-value">{{ stats.paused }}</div>
+    <div class="stat-label">일시중지</div>
+  </div>
+  <div class="stat-card stat-card--info">
+    <div class="stat-value">{{ stats.reply_rate }}%</div>
+    <div class="stat-label">답변율</div>
+  </div>
+</div>
+
+<!-- Steps -->
+<div class="card">
+  <h2>시퀀스</h2>
+  {% if steps %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>순서</th>
+        <th>템플릿</th>
+        <th>딜레이</th>
+        <th>제목</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in steps %}
+      <tr>
+        <td>Step {{ s.position + 1 }}</td>
+        <td>{{ s.template_name }}</td>
+        <td>{% if s.position == 0 %}즉시{% else %}{{ s.delay_days }}일 후{% endif %}</td>
+        <td class="text-muted">{{ s.template_subject }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="text-muted">스텝이 없습니다.</p>
+  {% endif %}
+</div>
+
+<!-- Step progression -->
+{% if stats.steps %}
+<div class="card">
+  <h2>진행 현황</h2>
+  <div class="progression-bar">
+    {% for sp in stats.steps %}
+    <div class="progression-step">
+      <div class="progression-label">Step {{ sp.current_step + 1 }}</div>
+      <div class="progression-count">{{ sp.n }}명</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Enrollments -->
+<div class="card">
+  <h2>등록 현황</h2>
+  {% if enrollments %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>이름</th>
+        <th>의회</th>
+        <th>이메일</th>
+        <th>현재 스텝</th>
+        <th>상태</th>
+        <th>등록일</th>
+        <th>마지막 발송</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in enrollments %}
+      <tr>
+        <td><a href="{{ url_for('contact_detail', cid=e.contact_id) }}">{{ e.contact_name }}</a></td>
+        <td>{{ e.council }}</td>
+        <td>{{ e.email }}</td>
+        <td>Step {{ e.current_step + 1 }}</td>
+        <td><span class="status-badge status-{{ e.status }}">{{ e.status }}</span></td>
+        <td>{{ e.enrolled_at.strftime('%m/%d') if e.enrolled_at else '' }}</td>
+        <td>{{ e.last_step_sent_at.strftime('%m/%d %H:%M') if e.last_step_sent_at else '대기' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="text-muted">등록된 연락처가 없습니다. {% if campaign.status == 'draft' %}<a href="{{ url_for('campaign_launch', cid=campaign.id) }}">캠페인을 시작</a>하세요.{% endif %}</p>
+  {% endif %}
+</div>
+{% endblock %}

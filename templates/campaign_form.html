@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}새 캠페인 — PAI CRM{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <a href="{{ url_for('campaign_list') }}" class="back-link">← 캠페인 목록</a>
+    <h1>새 캠페인</h1>
+  </div>
+</div>
+
+<form method="post" action="{{ url_for('campaign_new') }}" id="campaign-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+  <div class="card">
+    <h2>기본 정보</h2>
+    <div class="form-group">
+      <label>캠페인 이름</label>
+      <input type="text" name="name" class="input" placeholder="예: 첫 연락 시퀀스" required>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>이메일 시퀀스</h2>
+    <p class="text-muted">각 스텝의 템플릿과 이전 스텝 대비 딜레이를 설정하세요. 변수: {의원명}, {의회명}, {선거구}, {step_number}, {campaign_name}, {days_since_first_email}</p>
+
+    <div id="steps-container">
+      <div class="step-row" data-idx="0">
+        <div class="step-header">
+          <strong>Step 1</strong> <span class="text-muted">(즉시 발송)</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:2">
+            <label>템플릿</label>
+            <select name="step_0_template" class="select" required>
+              <option value="">선택...</option>
+              {% for t in templates %}
+              <option value="{{ t.id }}">{{ t.name }} — {{ t.subject }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group" style="flex:1">
+            <label>딜레이 (일)</label>
+            <input type="number" name="step_0_delay" class="input" value="0" min="0" readonly>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button type="button" class="btn btn-secondary" onclick="addStep()" style="margin-top:12px">+ 스텝 추가</button>
+  </div>
+
+  <button type="submit" class="btn btn-primary btn-lg">캠페인 생성</button>
+</form>
+
+<script>
+let stepCount = 1;
+
+function addStep() {
+  const idx = stepCount;
+  stepCount++;
+  const container = document.getElementById('steps-container');
+  const div = document.createElement('div');
+  div.className = 'step-row';
+  div.dataset.idx = idx;
+  div.innerHTML = `
+    <div class="step-header">
+      <strong>Step ${idx + 1}</strong>
+      <button type="button" class="btn btn-sm btn-danger" onclick="this.closest('.step-row').remove()">삭제</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <label>템플릿</label>
+        <select name="step_${idx}_template" class="select" required>
+          <option value="">선택...</option>
+          {% for t in templates %}
+          <option value="{{ t.id }}">{{ t.name }} — {{ t.subject }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>딜레이 (일)</label>
+        <input type="number" name="step_${idx}_delay" class="input" value="3" min="1">
+      </div>
+    </div>
+  `;
+  container.appendChild(div);
+}
+</script>
+{% endblock %}

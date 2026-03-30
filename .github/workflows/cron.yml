@@ -21,3 +21,10 @@ jobs:
             "${{ secrets.APP_URL }}/cron/sync-inbox" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json"
+
+      - name: Process campaign steps
+        run: |
+          curl -s -X POST \
+            "${{ secrets.APP_URL }}/cron/campaign" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json"

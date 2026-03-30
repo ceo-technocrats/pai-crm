@@ -473,6 +473,13 @@ def remove_tag_from_contact(contact_id: int, tag_id: int) -> None:
 
 # ── Templates ──────────────────────────────────────────────────────────────────
 
+def list_templates() -> list:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM templates ORDER BY is_default DESC, name")
+            return cur.fetchall()
+
+
 def get_default_template() -> dict | None:
     with db_conn() as conn:
         with conn.cursor() as cur:
@@ -631,6 +638,200 @@ def pipeline_data() -> dict:
                     "rows": rows[:100],
                     "overflow": max(0, len(rows) - 100),
                 }
+    return result
+
+
+# ── Campaigns ──────────────────────────────────────────────────────────────────
+
+def create_campaign(name: str) -> int:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO campaigns (name) VALUES (%s) RETURNING id", (name,))
+            return cur.fetchone()["id"]
+
+def get_campaign(campaign_id: int) -> dict | None:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM campaigns WHERE id = %s", (campaign_id,))
+            return cur.fetchone()
+
+def list_campaigns() -> list:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT c.*,
+                       (SELECT COUNT(*) FROM campaign_steps WHERE campaign_id = c.id) AS step_count,
+                       (SELECT COUNT(*) FROM campaign_enrollments WHERE campaign_id = c.id) AS enrolled,
+                       (SELECT COUNT(*) FROM campaign_enrollments WHERE campaign_id = c.id AND status = 'replied') AS replied,
+                       (SELECT COUNT(*) FROM campaign_enrollments WHERE campaign_id = c.id AND status = 'completed') AS completed_count
+                FROM campaigns c ORDER BY c.created_at DESC
+            """)
+            return cur.fetchall()
+
+def update_campaign_status(campaign_id: int, status: str) -> None:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE campaigns SET status = %s, updated_at = NOW() WHERE id = %s", (status, campaign_id))
+
+def delete_campaign(campaign_id: int) -> None:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM campaigns WHERE id = %s", (campaign_id,))
+
+def get_campaign_steps(campaign_id: int) -> list:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT cs.*, t.name AS template_name, t.subject AS template_subject
+                FROM campaign_steps cs JOIN templates t ON t.id = cs.template_id
+                WHERE cs.campaign_id = %s ORDER BY cs.position
+            """, (campaign_id,))
+            return cur.fetchall()
+
+def add_campaign_step(campaign_id: int, position: int, template_id: int, delay_days: int) -> int:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO campaign_steps (campaign_id, position, template_id, delay_days) VALUES (%s, %s, %s, %s) RETURNING id",
+                (campaign_id, position, template_id, delay_days))
+            return cur.fetchone()["id"]
+
+def delete_campaign_step(step_id: int) -> None:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM campaign_steps WHERE id = %s", (step_id,))
+
+def launch_campaign(campaign_id: int, region: str = None, party: str = None,
+                    status_filter: str = None, tag: str = None) -> tuple[int, int]:
+    conditions = ["c.email IS NOT NULL", "c.email != ''"]
+    params = [campaign_id]
+    tag_join = ""
+    if region:
+        conditions.append("c.region = %s"); params.append(region)
+    if party:
+        conditions.append("c.party = %s"); params.append(party)
+    if status_filter:
+        conditions.append("c.status = %s"); params.append(status_filter)
+    if tag:
+        tag_join = "JOIN contact_tags ct ON ct.contact_id = c.id JOIN tags tg ON tg.id = ct.tag_id AND tg.name = %s"
+        params.append(tag)
+    where = " AND ".join(conditions)
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                INSERT INTO campaign_enrollments (campaign_id, contact_id)
+                SELECT %s, c.id FROM contacts c {tag_join} WHERE {where}
+                ON CONFLICT (campaign_id, contact_id) DO NOTHING
+            """, params)
+            enrolled = cur.rowcount
+            cur.execute(f"SELECT COUNT(*) AS n FROM contacts c {tag_join} WHERE {where}", params[1:])
+            total = cur.fetchone()["n"]
+    return enrolled, total - enrolled
+
+def campaign_stats(campaign_id: int) -> dict:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT status, COUNT(*) AS n FROM campaign_enrollments WHERE campaign_id = %s GROUP BY status", (campaign_id,))
+            counts = {r["status"]: r["n"] for r in cur.fetchall()}
+            cur.execute("SELECT current_step, COUNT(*) AS n FROM campaign_enrollments WHERE campaign_id = %s GROUP BY current_step ORDER BY current_step", (campaign_id,))
+            steps = cur.fetchall()
+            total = sum(counts.values())
+            return {
+                "total": total, "active": counts.get("active", 0),
+                "replied": counts.get("replied", 0), "completed": counts.get("completed", 0),
+                "paused": counts.get("paused", 0),
+                "reply_rate": round(counts.get("replied", 0) / total * 100) if total else 0,
+                "steps": steps,
+            }
+
+def campaign_enrollments_list(campaign_id: int, limit: int = 100) -> list:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT ce.*, c.name AS contact_name, c.council, c.email, c.status AS contact_status
+                FROM campaign_enrollments ce JOIN contacts c ON c.id = ce.contact_id
+                WHERE ce.campaign_id = %s ORDER BY ce.status, ce.enrolled_at DESC LIMIT %s
+            """, (campaign_id, limit))
+            return cur.fetchall()
+
+def get_due_campaign_steps(limit: int = 100) -> list:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT ce.id AS enrollment_id, ce.campaign_id, ce.contact_id,
+                       ce.current_step, ce.enrolled_at, ce.last_step_sent_at, ce.retry_count,
+                       cs.template_id, cs.delay_days, cs.position AS step_position,
+                       cam.name AS campaign_name
+                FROM campaign_enrollments ce
+                JOIN campaign_steps cs ON cs.campaign_id = ce.campaign_id AND cs.position = ce.current_step
+                JOIN campaigns cam ON cam.id = ce.campaign_id
+                WHERE ce.status = 'active' AND cam.status = 'active'
+                  AND (
+                    (ce.last_step_sent_at IS NULL AND cs.position = 0)
+                    OR (ce.last_step_sent_at IS NOT NULL
+                        AND ce.last_step_sent_at + (cs.delay_days || ' days')::interval <= NOW())
+                  )
+                  AND NOT EXISTS (
+                    SELECT 1 FROM outreach_log ol
+                    WHERE ol.contact_id = ce.contact_id AND ol.direction = 'inbound'
+                      AND ol.channel = 'email'
+                      AND ol.logged_at > COALESCE(ce.last_step_sent_at, ce.enrolled_at)
+                  )
+                LIMIT %s FOR UPDATE OF ce SKIP LOCKED
+            """, (limit,))
+            return cur.fetchall()
+
+def advance_enrollment(enrollment_id: int, campaign_id: int) -> None:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT MAX(position) AS max_pos FROM campaign_steps WHERE campaign_id = %s", (campaign_id,))
+            max_pos = cur.fetchone()["max_pos"] or 0
+            cur.execute("SELECT current_step FROM campaign_enrollments WHERE id = %s", (enrollment_id,))
+            row = cur.fetchone()
+            if not row:
+                return
+            next_step = row["current_step"] + 1
+            if next_step > max_pos:
+                cur.execute("UPDATE campaign_enrollments SET status = 'completed', current_step = %s, last_step_sent_at = NOW() WHERE id = %s", (next_step, enrollment_id))
+            else:
+                cur.execute("UPDATE campaign_enrollments SET current_step = %s, last_step_sent_at = NOW(), retry_count = 0 WHERE id = %s", (next_step, enrollment_id))
+
+def mark_enrollment_retry(enrollment_id: int) -> bool:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE campaign_enrollments SET retry_count = retry_count + 1 WHERE id = %s RETURNING retry_count", (enrollment_id,))
+            row = cur.fetchone()
+            if row and row["retry_count"] >= 3:
+                cur.execute("UPDATE campaign_enrollments SET status = 'paused' WHERE id = %s", (enrollment_id,))
+                return True
+            return False
+
+def mark_contact_enrollments_replied(contact_id: int) -> int:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE campaign_enrollments SET status = 'replied' WHERE contact_id = %s AND status = 'active'", (contact_id,))
+            return cur.rowcount
+
+def clone_campaign(campaign_id: int) -> int | None:
+    campaign = get_campaign(campaign_id)
+    if not campaign:
+        return None
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO campaigns (name, status) VALUES (%s, 'draft') RETURNING id", (f"{campaign['name']} (복사)",))
+            new_id = cur.fetchone()["id"]
+            cur.execute("""
+                INSERT INTO campaign_steps (campaign_id, position, template_id, delay_days)
+                SELECT %s, position, template_id, delay_days FROM campaign_steps WHERE campaign_id = %s ORDER BY position
+            """, (new_id, campaign_id))
+    return new_id
+
+def fill_campaign_template_vars(text: str, contact: dict, campaign_context: dict = None) -> str:
+    result = fill_template_vars(text, contact)
+    if campaign_context:
+        result = result.replace("{step_number}", str(campaign_context.get("step_number", "")))
+        result = result.replace("{campaign_name}", str(campaign_context.get("campaign_name", "")))
+        result = result.replace("{days_since_first_email}", str(campaign_context.get("days_since_first_email", "")))
     return result
 
 # ── CSV export ─────────────────────────────────────────────────────────────────

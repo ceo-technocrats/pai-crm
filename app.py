@@ -548,6 +548,128 @@ def create_app():
         flash(f"가져오기 완료: 신규 {inserted}명, 업데이트 {updated}명, 건너뜀 {skipped}명", "success")
         return redirect(url_for("contacts"))
 
+    # ── Campaigns ──────────────────────────────────────────────────────────────
+
+    @app.route("/campaigns")
+    @login_required
+    def campaign_list():
+        campaigns = db.list_campaigns()
+        return render_template("campaigns.html", campaigns=campaigns, csrf_token=get_csrf_token())
+
+    @app.route("/campaigns/new", methods=["GET", "POST"])
+    @login_required
+    def campaign_new():
+        if request.method == "POST":
+            csrf_protect_check()
+            name = request.form.get("name", "").strip()
+            if not name:
+                flash("캠페인 이름을 입력하세요.", "error")
+                return redirect(url_for("campaign_new"))
+
+            campaign_id = db.create_campaign(name)
+
+            # Add steps from form
+            step_idx = 0
+            while True:
+                tmpl_key = f"step_{step_idx}_template"
+                delay_key = f"step_{step_idx}_delay"
+                if tmpl_key not in request.form:
+                    break
+                template_id = request.form.get(tmpl_key)
+                delay_days = request.form.get(delay_key, "0")
+                if template_id:
+                    db.add_campaign_step(campaign_id, step_idx, int(template_id), int(delay_days or 0))
+                step_idx += 1
+
+            flash("캠페인이 생성되었습니다.", "success")
+            return redirect(url_for("campaign_detail", cid=campaign_id))
+
+        templates = db.list_templates()
+        return render_template("campaign_form.html", campaign=None, templates=templates, csrf_token=get_csrf_token())
+
+    @app.route("/campaigns/<int:cid>")
+    @login_required
+    def campaign_detail(cid):
+        campaign = db.get_campaign(cid)
+        if not campaign:
+            abort(404)
+        steps = db.get_campaign_steps(cid)
+        stats = db.campaign_stats(cid)
+        enrollments = db.campaign_enrollments_list(cid)
+        return render_template("campaign_detail.html",
+                               campaign=campaign, steps=steps, stats=stats,
+                               enrollments=enrollments, csrf_token=get_csrf_token())
+
+    @app.route("/campaigns/<int:cid>/launch", methods=["GET", "POST"])
+    @login_required
+    def campaign_launch(cid):
+        campaign = db.get_campaign(cid)
+        if not campaign:
+            abort(404)
+
+        if request.method == "POST":
+            csrf_protect_check()
+            region = request.form.get("region") or None
+            party = request.form.get("party") or None
+            status_filter = request.form.get("status") or None
+            tag = request.form.get("tag") or None
+
+            enrolled, skipped = db.launch_campaign(cid, region, party, status_filter, tag)
+            if enrolled == 0 and skipped == 0:
+                flash("대상 연락처가 없습니다.", "error")
+                return redirect(url_for("campaign_launch", cid=cid))
+
+            db.update_campaign_status(cid, "active")
+            flash(f"캠페인 시작: {enrolled}명 등록 (중복 {skipped}명 건너뜀)", "success")
+            return redirect(url_for("campaign_detail", cid=cid))
+
+        regions = db.distinct_regions()
+        parties = db.distinct_parties()
+        tags = db.all_tags()
+        return render_template("campaign_launch.html",
+                               campaign=campaign, regions=regions, parties=parties,
+                               tags=tags, csrf_token=get_csrf_token())
+
+    @app.route("/campaigns/<int:cid>/pause", methods=["POST"])
+    @login_required
+    def campaign_pause(cid):
+        csrf_protect_check()
+        db.update_campaign_status(cid, "paused")
+        flash("캠페인이 일시중지되었습니다.", "success")
+        return redirect(url_for("campaign_detail", cid=cid))
+
+    @app.route("/campaigns/<int:cid>/resume", methods=["POST"])
+    @login_required
+    def campaign_resume(cid):
+        csrf_protect_check()
+        db.update_campaign_status(cid, "active")
+        flash("캠페인이 재개되었습니다.", "success")
+        return redirect(url_for("campaign_detail", cid=cid))
+
+    @app.route("/campaigns/<int:cid>/clone", methods=["POST"])
+    @login_required
+    def campaign_clone(cid):
+        csrf_protect_check()
+        new_id = db.clone_campaign(cid)
+        if not new_id:
+            abort(404)
+        flash("캠페인이 복사되었습니다.", "success")
+        return redirect(url_for("campaign_detail", cid=new_id))
+
+    @app.route("/campaigns/<int:cid>/delete", methods=["POST"])
+    @login_required
+    def campaign_delete(cid):
+        csrf_protect_check()
+        campaign = db.get_campaign(cid)
+        if not campaign:
+            abort(404)
+        if campaign["status"] != "draft":
+            flash("초안 상태의 캠페인만 삭제할 수 있습니다.", "error")
+            return redirect(url_for("campaign_detail", cid=cid))
+        db.delete_campaign(cid)
+        flash("캠페인이 삭제되었습니다.", "success")
+        return redirect(url_for("campaign_list"))
+
     # ── Settings ───────────────────────────────────────────────────────────────
 
     @app.route("/settings")

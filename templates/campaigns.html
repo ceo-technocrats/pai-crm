@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}캠페인 — PAI CRM{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>캠페인</h1>
+  <a href="{{ url_for('campaign_new') }}" class="btn btn-primary">새 캠페인</a>
+</div>
+
+{% if campaigns %}
+<table class="table">
+  <thead>
+    <tr>
+      <th>캠페인명</th>
+      <th>상태</th>
+      <th>스텝</th>
+      <th>등록</th>
+      <th>답변</th>
+      <th>완료</th>
+      <th>생성일</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in campaigns %}
+    <tr>
+      <td><a href="{{ url_for('campaign_detail', cid=c.id) }}">{{ c.name }}</a></td>
+      <td><span class="status-badge status-{{ c.status }}">{{ c.status }}</span></td>
+      <td>{{ c.step_count }}</td>
+      <td>{{ c.enrolled }}</td>
+      <td>{{ c.replied }}</td>
+      <td>{{ c.completed_count }}</td>
+      <td>{{ c.created_at.strftime('%m/%d') if c.created_at else '' }}</td>
+      <td>
+        <form method="post" action="{{ url_for('campaign_clone', cid=c.id) }}" style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn btn-sm btn-secondary">복사</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="card">
+  <p class="text-muted">캠페인이 없습니다. 새 캠페인을 만들어보세요.</p>
+</div>
+{% endif %}
+{% endblock %}

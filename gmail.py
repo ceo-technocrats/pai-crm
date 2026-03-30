@@ -273,6 +273,12 @@ def sync_inbox() -> dict:
                     except Exception:
                         pass  # non-fatal
 
+                    # Global reply suppression: pause ALL active campaign enrollments
+                    try:
+                        db.mark_contact_enrollments_replied(contact_id)
+                    except Exception:
+                        pass  # non-fatal
+
     # Update last sync timestamp
     db.set_setting("last_gmail_sync", datetime.now(timezone.utc).isoformat())
 

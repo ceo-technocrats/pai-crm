@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}캠페인 시작 — PAI CRM{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <a href="{{ url_for('campaign_detail', cid=campaign.id) }}" class="back-link">← {{ campaign.name }}</a>
+    <h1>캠페인 시작: {{ campaign.name }}</h1>
+  </div>
+</div>
+
+<form method="post" action="{{ url_for('campaign_launch', cid=campaign.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+  <div class="card">
+    <h2>대상 필터</h2>
+    <p class="text-muted">이메일이 있는 연락처 중 아래 조건에 맞는 대상에게 캠페인이 적용됩니다.</p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>지역</label>
+        <select name="region" class="select">
+          <option value="">전체</option>
+          {% for r in regions %}
+          <option value="{{ r }}">{{ r }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>정당</label>
+        <select name="party" class="select">
+          <option value="">전체</option>
+          {% for p in parties %}
+          <option value="{{ p }}">{{ p }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>상태</label>
+        <select name="status" class="select">
+          <option value="미연락" selected>미연락</option>
+          <option value="연락함">연락함</option>
+          <option value="">전체</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>태그</label>
+        <select name="tag" class="select">
+          <option value="">전체</option>
+          {% for t in tags %}
+          <option value="{{ t.name }}">{{ t.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-primary btn-lg">캠페인 시작</button>
+</form>
+{% endblock %}
