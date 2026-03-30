@@ -696,11 +696,32 @@ def create_app():
         name    = request.form.get("name", "").strip()
         subject = request.form.get("subject", "").strip()
         body    = request.form.get("body", "").strip()
+        template_id = request.form.get("template_id") or None
         if not (name and subject and body):
             flash("모든 항목을 입력하세요.", "error")
             return redirect(url_for("settings"))
-        db.save_template(name, subject, body)
-        flash("템플릿이 저장되었습니다.", "success")
+        if template_id:
+            db.save_template(name, subject, body, int(template_id))
+            flash("템플릿이 수정되었습니다.", "success")
+        else:
+            db.save_template(name, subject, body)
+            flash("템플릿이 생성되었습니다.", "success")
+        return redirect(url_for("settings"))
+
+    @app.route("/settings/template/<int:tid>/delete", methods=["POST"])
+    @login_required
+    def delete_template(tid):
+        csrf_protect_check()
+        db.delete_template(tid)
+        flash("템플릿이 삭제되었습니다.", "success")
+        return redirect(url_for("settings"))
+
+    @app.route("/settings/template/<int:tid>/default", methods=["POST"])
+    @login_required
+    def set_default_template_route(tid):
+        csrf_protect_check()
+        db.set_default_template(tid)
+        flash("기본 템플릿이 변경되었습니다.", "success")
         return redirect(url_for("settings"))
 
     # ── Pipeline stage management ────────────────────────────────────────────

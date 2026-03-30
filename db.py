@@ -490,21 +490,35 @@ def get_default_template() -> dict | None:
                 row = cur.fetchone()
             return row
 
-def save_template(name: str, subject: str, body: str) -> None:
+def save_template(name: str, subject: str, body: str, template_id: int = None) -> int:
+    """Create or update a template. Returns template ID."""
     with db_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT id FROM templates WHERE is_default=TRUE LIMIT 1")
-            row = cur.fetchone()
-            if row:
+            if template_id:
                 cur.execute(
                     "UPDATE templates SET name=%s, subject=%s, body=%s WHERE id=%s",
-                    (name, subject, body, row["id"]),
+                    (name, subject, body, template_id),
                 )
+                return template_id
             else:
                 cur.execute(
-                    "INSERT INTO templates (name, subject, body, is_default) VALUES (%s,%s,%s,TRUE)",
+                    "INSERT INTO templates (name, subject, body) VALUES (%s,%s,%s) RETURNING id",
                     (name, subject, body),
                 )
+                return cur.fetchone()["id"]
+
+
+def delete_template(template_id: int) -> None:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM templates WHERE id = %s AND is_default = FALSE", (template_id,))
+
+
+def set_default_template(template_id: int) -> None:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE templates SET is_default = FALSE WHERE is_default = TRUE")
+            cur.execute("UPDATE templates SET is_default = TRUE WHERE id = %s", (template_id,))
 
 def fill_template_vars(template_text: str, contact: dict) -> str:
     term = contact.get("term")

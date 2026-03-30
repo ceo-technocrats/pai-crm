@@ -100,39 +100,79 @@ function saveOrder() {
 <!-- Email templates -->
 <div class="card">
   <h2>이메일 템플릿</h2>
-  <p class="text-muted">변수: {의원명}, {의회명}, {선거구}</p>
+  <p class="text-muted">변수: {의원명}, {의회명}, {선거구}, {step_number}, {campaign_name}, {days_since_first_email}</p>
 
   {% if templates %}
   <table class="table">
-    <thead><tr><th>이름</th><th>제목</th><th>기본</th></tr></thead>
+    <thead><tr><th>이름</th><th>제목</th><th>기본</th><th></th></tr></thead>
     <tbody>
       {% for t in templates %}
       <tr>
         <td>{{ t.name }}</td>
-        <td>{{ t.subject }}</td>
-        <td>{% if t.is_default %}✓{% endif %}</td>
+        <td class="text-muted">{{ t.subject }}</td>
+        <td>{% if t.is_default %}<span class="tag">기본</span>{% endif %}</td>
+        <td style="text-align:right;white-space:nowrap">
+          <button type="button" class="btn btn-sm btn-secondary" onclick="editTemplate({{ t.id }}, '{{ t.name }}', '{{ t.subject }}', `{{ t.body }}`)">수정</button>
+          {% if not t.is_default %}
+          <form method="post" action="{{ url_for('set_default_template_route', tid=t.id) }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="btn btn-sm btn-secondary">기본으로</button>
+          </form>
+          <form method="post" action="{{ url_for('delete_template', tid=t.id) }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('삭제하시겠습니까?')">삭제</button>
+          </form>
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
   {% endif %}
 
-  <h3>새 템플릿 저장</h3>
-  <form method="post" action="{{ url_for('save_template') }}">
+  <h3 id="template-form-title">새 템플릿</h3>
+  <form method="post" action="{{ url_for('save_template') }}" id="template-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="template_id" id="template-id" value="">
     <div class="form-group">
       <label>템플릿 이름</label>
-      <input type="text" name="name" class="input" required>
+      <input type="text" name="name" id="tmpl-name" class="input" required>
     </div>
     <div class="form-group">
       <label>제목</label>
-      <input type="text" name="subject" class="input" required>
+      <input type="text" name="subject" id="tmpl-subject" class="input" required>
     </div>
     <div class="form-group">
       <label>본문</label>
-      <textarea name="body" rows="10" class="textarea" required></textarea>
+      <textarea name="body" id="tmpl-body" rows="10" class="textarea" required></textarea>
     </div>
-    <button type="submit" class="btn btn-primary">저장</button>
+    <div style="display:flex;gap:8px">
+      <button type="submit" class="btn btn-primary" id="tmpl-submit-btn">저장</button>
+      <button type="button" class="btn btn-secondary" id="tmpl-cancel-btn" style="display:none" onclick="resetTemplateForm()">취소</button>
+    </div>
   </form>
 </div>
+
+<script>
+function editTemplate(id, name, subject, body) {
+  document.getElementById('template-id').value = id;
+  document.getElementById('tmpl-name').value = name;
+  document.getElementById('tmpl-subject').value = subject;
+  document.getElementById('tmpl-body').value = body;
+  document.getElementById('template-form-title').textContent = '템플릿 수정';
+  document.getElementById('tmpl-submit-btn').textContent = '수정';
+  document.getElementById('tmpl-cancel-btn').style.display = '';
+  document.getElementById('template-form').scrollIntoView({behavior: 'smooth'});
+}
+
+function resetTemplateForm() {
+  document.getElementById('template-id').value = '';
+  document.getElementById('tmpl-name').value = '';
+  document.getElementById('tmpl-subject').value = '';
+  document.getElementById('tmpl-body').value = '';
+  document.getElementById('template-form-title').textContent = '새 템플릿';
+  document.getElementById('tmpl-submit-btn').textContent = '저장';
+  document.getElementById('tmpl-cancel-btn').style.display = 'none';
+}
+</script>
 {% endblock %}
