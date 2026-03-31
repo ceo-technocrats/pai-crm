@@ -14,6 +14,10 @@
       <button type="submit" class="btn btn-danger" onclick="return confirm('정말 삭제하시겠습니까?')">삭제</button>
     </form>
     {% elif campaign.status == 'active' %}
+    <form method="post" action="{{ url_for('campaign_trigger', cid=campaign.id) }}" style="display:inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-primary">지금 발송</button>
+    </form>
     <form method="post" action="{{ url_for('campaign_pause', cid=campaign.id) }}" style="display:inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit" class="btn btn-warning">일시중지</button>

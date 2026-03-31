@@ -646,6 +646,104 @@ def create_app():
         flash("캠페인이 재개되었습니다.", "success")
         return redirect(url_for("campaign_detail", cid=cid))
 
+    @app.route("/campaigns/<int:cid>/trigger", methods=["POST"])
+    @login_required
+    def campaign_trigger(cid):
+        """Manual trigger — process due steps for this campaign immediately."""
+        csrf_protect_check()
+        import os as _os
+        # Call the cron endpoint internally
+        try:
+            service = gmail.get_service()
+        except Exception:
+            flash("Gmail 토큰이 만료되었습니다. 다시 인증하세요.", "error")
+            return redirect(url_for("campaign_detail", cid=cid))
+
+        due = db.get_due_campaign_steps(100)
+        # Filter to this campaign only
+        due = [r for r in due if r["campaign_id"] == cid]
+
+        if not due:
+            flash("발송 대기 중인 스텝이 없습니다.", "warning")
+            return redirect(url_for("campaign_detail", cid=cid))
+
+        sent = 0
+        failed = 0
+        from datetime import datetime, timezone
+        from googleapiclient.errors import HttpError
+
+        for row in due:
+            contact = db.get_contact(row["contact_id"])
+            if not contact or not contact.get("email", "").strip():
+                db.mark_enrollment_retry(row["enrollment_id"])
+                failed += 1
+                continue
+
+            days_since = 0
+            if row.get("enrolled_at"):
+                days_since = (datetime.now(timezone.utc) - row["enrolled_at"]).days
+
+            campaign_context = {
+                "step_number": row["current_step"] + 1,
+                "campaign_name": row.get("campaign_name", ""),
+                "days_since_first_email": days_since,
+            }
+
+            with db.db_conn() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT subject, body FROM templates WHERE id = %s", (row["template_id"],))
+                    tmpl = cur.fetchone()
+
+            if not tmpl:
+                db.mark_enrollment_retry(row["enrollment_id"])
+                failed += 1
+                continue
+
+            subject = db.fill_campaign_template_vars(tmpl["subject"], contact, campaign_context)
+            body = db.fill_campaign_template_vars(tmpl["body"], contact, campaign_context)
+
+            attachments = None
+            att_rows = db.get_template_attachments(row["template_id"])
+            if att_rows:
+                attachments = []
+                for a in att_rows:
+                    att_data = db.get_template_attachment_data(a["id"])
+                    if att_data:
+                        attachments.append({"filename": att_data["filename"], "mimetype": att_data["mimetype"], "data": att_data["data"]})
+
+            try:
+                gmail_id = gmail.send_email(service, contact["email"], subject, body, attachments=attachments)
+            except HttpError:
+                db.mark_enrollment_retry(row["enrollment_id"])
+                failed += 1
+                continue
+            except Exception:
+                db.mark_enrollment_retry(row["enrollment_id"])
+                failed += 1
+                continue
+
+            db.log_outreach(
+                contact_id=row["contact_id"],
+                channel="email",
+                direction="outbound",
+                subject=subject,
+                body=body,
+                gmail_message_id=gmail_id,
+                notes=f"[캠페인: {row.get('campaign_name', '')} — step {row['current_step'] + 1}]",
+            )
+            db.advance_enrollment(row["enrollment_id"], row["campaign_id"])
+
+            if row["current_step"] == 0 and contact.get("status") == "미연락":
+                try:
+                    db.update_contact_status(row["contact_id"], "연락함")
+                except Exception:
+                    pass
+
+            sent += 1
+
+        flash(f"발송 완료: {sent}건 성공, {failed}건 실패", "success" if sent else "warning")
+        return redirect(url_for("campaign_detail", cid=cid))
+
     @app.route("/campaigns/<int:cid>/clone", methods=["POST"])
     @login_required
     def campaign_clone(cid):

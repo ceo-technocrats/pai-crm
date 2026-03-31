@@ -226,8 +226,18 @@ def cron_campaign():
         subject = db.fill_campaign_template_vars(tmpl["subject"], contact, campaign_context)
         body = db.fill_campaign_template_vars(tmpl["body"], contact, campaign_context)
 
+        # Load attachments for this template
+        attachments = None
+        att_rows = db.get_template_attachments(row["template_id"])
+        if att_rows:
+            attachments = []
+            for a in att_rows:
+                att_data = db.get_template_attachment_data(a["id"])
+                if att_data:
+                    attachments.append({"filename": att_data["filename"], "mimetype": att_data["mimetype"], "data": att_data["data"]})
+
         try:
-            gmail_id = gmail.send_email(service, contact["email"], subject, body)
+            gmail_id = gmail.send_email(service, contact["email"], subject, body, attachments=attachments)
         except HttpError as e:
             status_code = int(e.resp.status)
             paused = db.mark_enrollment_retry(row["enrollment_id"])
