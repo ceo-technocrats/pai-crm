@@ -73,16 +73,39 @@ def get_service():
     return build("gmail", "v1", credentials=creds)
 
 
-def send_email(service, to: str, subject: str, body: str) -> str:
+def send_email(service, to: str, subject: str, body: str, attachments: list = None) -> str:
     """
-    Send a plain-text email via the Gmail API.
+    Send an email via the Gmail API, optionally with attachments.
+    attachments: list of dicts with keys: filename, mimetype, data (base64 string)
     Returns the Gmail message ID on success.
     Retries once on network errors.
     Raises HttpError on API errors (caller must handle).
     """
-    msg = email.mime.text.MIMEText(body, "plain", "utf-8")
-    msg["To"] = to
-    msg["Subject"] = subject
+    # Detect HTML content
+    import re
+    is_html = bool(re.search(r'<[a-z][\s\S]*>', body, re.IGNORECASE)) if body else False
+    content_type = "html" if is_html else "plain"
+
+    if attachments:
+        import email.mime.multipart
+        import email.mime.base
+        import email.encoders
+        msg = email.mime.multipart.MIMEMultipart()
+        msg["To"] = to
+        msg["Subject"] = subject
+        msg.attach(email.mime.text.MIMEText(body, content_type, "utf-8"))
+        for att in attachments:
+            maintype, subtype = att["mimetype"].split("/", 1) if "/" in att["mimetype"] else ("application", "octet-stream")
+            part = email.mime.base.MIMEBase(maintype, subtype)
+            part.set_payload(base64.b64decode(att["data"]))
+            email.encoders.encode_base64(part)
+            part.add_header("Content-Disposition", "attachment", filename=att["filename"])
+            msg.attach(part)
+    else:
+        msg = email.mime.text.MIMEText(body, content_type, "utf-8")
+        msg["To"] = to
+        msg["Subject"] = subject
+
     raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
 
     def _execute():

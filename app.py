@@ -679,6 +679,9 @@ def create_app():
             with conn.cursor() as cur:
                 cur.execute("SELECT * FROM templates ORDER BY is_default DESC, id")
                 templates = cur.fetchall()
+        # Attach attachment list to each template
+        for t in templates:
+            t["attachments"] = db.get_template_attachments(t["id"])
         gmail_ok = gmail.has_token()
         stages = db.get_pipeline_stages()
         return render_template(
@@ -714,6 +717,36 @@ def create_app():
         csrf_protect_check()
         db.delete_template(tid)
         flash("템플릿이 삭제되었습니다.", "success")
+        return redirect(url_for("settings"))
+
+    @app.route("/settings/template/<int:tid>/attachment", methods=["POST"])
+    @login_required
+    def upload_attachment(tid):
+        csrf_protect_check()
+        file = request.files.get("file")
+        if not file or not file.filename:
+            flash("파일을 선택하세요.", "error")
+            return redirect(url_for("settings"))
+
+        import base64 as b64
+        file_bytes = file.read()
+        size = len(file_bytes)
+
+        if size > 3 * 1024 * 1024:  # 3MB limit
+            flash("파일 크기는 3MB 이하만 가능합니다.", "error")
+            return redirect(url_for("settings"))
+
+        data_b64 = b64.b64encode(file_bytes).decode()
+        db.add_template_attachment(tid, file.filename, file.content_type or "application/octet-stream", data_b64, size)
+        flash(f"'{file.filename}' 첨부됨.", "success")
+        return redirect(url_for("settings"))
+
+    @app.route("/settings/attachment/<int:aid>/delete", methods=["POST"])
+    @login_required
+    def delete_attachment(aid):
+        csrf_protect_check()
+        db.delete_template_attachment(aid)
+        flash("첨부파일이 삭제되었습니다.", "success")
         return redirect(url_for("settings"))
 
     @app.route("/settings/template/<int:tid>/default", methods=["POST"])

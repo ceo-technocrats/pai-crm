@@ -101,33 +101,58 @@ function saveOrder() {
 <div class="card">
   <h2>이메일 템플릿</h2>
   <p class="text-muted">변수: {의원명}, {의회명}, {선거구}, {step_number}, {campaign_name}, {days_since_first_email}</p>
+  <p class="text-muted">HTML 지원: &lt;b&gt;, &lt;a href="..."&gt;, &lt;br&gt; 등 사용 가능</p>
 
   {% if templates %}
-  <table class="table">
-    <thead><tr><th>이름</th><th>제목</th><th>기본</th><th></th></tr></thead>
-    <tbody>
-      {% for t in templates %}
-      <tr>
-        <td>{{ t.name }}</td>
-        <td class="text-muted">{{ t.subject }}</td>
-        <td>{% if t.is_default %}<span class="tag">기본</span>{% endif %}</td>
-        <td style="text-align:right;white-space:nowrap">
-          <button type="button" class="btn btn-sm btn-secondary" onclick="editTemplate({{ t.id }}, '{{ t.name }}', '{{ t.subject }}', `{{ t.body }}`)">수정</button>
-          {% if not t.is_default %}
-          <form method="post" action="{{ url_for('set_default_template_route', tid=t.id) }}" style="display:inline">
+  {% for t in templates %}
+  <div class="template-card" style="border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <strong>{{ t.name }}</strong>
+        {% if t.is_default %}<span class="tag" style="margin-left:8px">기본</span>{% endif %}
+        <div class="text-muted" style="font-size:13px">{{ t.subject }}</div>
+      </div>
+      <div style="display:flex;gap:6px;white-space:nowrap">
+        <button type="button" class="btn btn-sm btn-secondary" onclick="editTemplate({{ t.id }}, '{{ t.name }}', '{{ t.subject }}', `{{ t.body }}`)">수정</button>
+        {% if not t.is_default %}
+        <form method="post" action="{{ url_for('set_default_template_route', tid=t.id) }}" style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn btn-sm btn-secondary">기본으로</button>
+        </form>
+        <form method="post" action="{{ url_for('delete_template', tid=t.id) }}" style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('삭제하시겠습니까?')">삭제</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Attachments -->
+    <div style="margin-top:8px">
+      {% if t.attachments %}
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+        {% for a in t.attachments %}
+        <span class="tag" style="font-size:12px">
+          📎 {{ a.filename }} ({{ (a.size_bytes / 1024) | round(0) | int }}KB)
+          <form method="post" action="{{ url_for('delete_attachment', aid=a.id) }}" style="display:inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="btn btn-sm btn-secondary">기본으로</button>
+            <button type="submit" class="tag-remove" onclick="return confirm('삭제?')">×</button>
           </form>
-          <form method="post" action="{{ url_for('delete_template', tid=t.id) }}" style="display:inline">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('삭제하시겠습니까?')">삭제</button>
-          </form>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+        </span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <form method="post" action="{{ url_for('upload_attachment', tid=t.id) }}" enctype="multipart/form-data" style="display:flex;gap:6px;align-items:center">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label class="btn btn-sm btn-secondary" style="margin:0;cursor:pointer">
+          📎 파일 첨부
+          <input type="file" name="file" style="display:none" onchange="this.closest('form').submit()">
+        </label>
+        <span class="text-muted" style="font-size:11px">3MB 이하</span>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
   {% endif %}
 
   <h3 id="template-form-title">새 템플릿</h3>
@@ -143,7 +168,7 @@ function saveOrder() {
       <input type="text" name="subject" id="tmpl-subject" class="input" required>
     </div>
     <div class="form-group">
-      <label>본문</label>
+      <label>본문 <span class="text-muted">(HTML 사용 가능)</span></label>
       <textarea name="body" id="tmpl-body" rows="10" class="textarea" required></textarea>
     </div>
     <div style="display:flex;gap:8px">

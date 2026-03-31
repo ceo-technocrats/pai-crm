@@ -86,8 +86,23 @@ def cron_send():
             subject = "PAI 소개"
             body = ""
 
+        # Load attachments for this template
+        attachments = None
+        if template_id:
+            att_rows = db.get_template_attachments(template_id)
+            if att_rows:
+                attachments = []
+                for a in att_rows:
+                    att_data = db.get_template_attachment_data(a["id"])
+                    if att_data:
+                        attachments.append({
+                            "filename": att_data["filename"],
+                            "mimetype": att_data["mimetype"],
+                            "data": att_data["data"],
+                        })
+
         try:
-            gmail_id = gmail.send_email(service, to_email, subject, body)
+            gmail_id = gmail.send_email(service, to_email, subject, body, attachments=attachments)
         except HttpError as e:
             status_code = int(e.resp.status)
             if status_code == 400:

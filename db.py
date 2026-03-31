@@ -515,6 +515,41 @@ def delete_template(template_id: int) -> None:
             cur.execute("DELETE FROM templates WHERE id = %s AND is_default = FALSE", (template_id,))
 
 
+def add_template_attachment(template_id: int, filename: str, mimetype: str, data_b64: str, size_bytes: int) -> int:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO template_attachments (template_id, filename, mimetype, data, size_bytes)
+                   VALUES (%s, %s, %s, %s, %s) RETURNING id""",
+                (template_id, filename, mimetype, data_b64, size_bytes),
+            )
+            return cur.fetchone()["id"]
+
+
+def get_template_attachments(template_id: int) -> list:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, filename, mimetype, size_bytes FROM template_attachments WHERE template_id = %s ORDER BY id",
+                (template_id,),
+            )
+            return cur.fetchall()
+
+
+def get_template_attachment_data(attachment_id: int) -> dict | None:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM template_attachments WHERE id = %s", (attachment_id,))
+            return cur.fetchone()
+
+
+def delete_template_attachment(attachment_id: int) -> None:
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM template_attachments WHERE id = %s", (attachment_id,))
+
+
+
 def set_default_template(template_id: int) -> None:
     with db_conn() as conn:
         with conn.cursor() as cur:
