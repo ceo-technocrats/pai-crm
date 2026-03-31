@@ -27,7 +27,7 @@ cron_bp = Blueprint("cron", __name__)
 DAILY_LIMIT = 2000
 
 
-@cron_bp.route("/cron/send", methods=["POST"])
+@cron_bp.route("/cron/send", methods=["GET", "POST"])
 def cron_send():
     # Authenticate
     secret = os.environ.get("CRON_SECRET", "")
@@ -153,7 +153,7 @@ def cron_send():
     return jsonify({"sent": sent, "failed": failed, "remaining": remaining})
 
 
-@cron_bp.route("/cron/sync-inbox", methods=["POST"])
+@cron_bp.route("/cron/sync-inbox", methods=["GET", "POST"])
 def cron_sync_inbox():
     """Sync Gmail inbox with CRM contacts."""
     secret = os.environ.get("CRON_SECRET", "")
@@ -170,7 +170,7 @@ def cron_sync_inbox():
         return jsonify({"error": str(e)}), 500
 
 
-@cron_bp.route("/cron/campaign", methods=["POST"])
+@cron_bp.route("/cron/campaign", methods=["GET", "POST"])
 def cron_campaign():
     """Process due campaign enrollment steps."""
     secret = os.environ.get("CRON_SECRET", "")
