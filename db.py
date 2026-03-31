@@ -208,12 +208,13 @@ def list_contacts(
             params.extend([f"%{search}%", f"%{search}%", f"%{search}%"])
 
     tag_join = ""
+    tag_params = []
     if tag:
         tag_join = """
             JOIN contact_tags ct ON ct.contact_id = c.id
             JOIN tags t ON t.id = ct.tag_id AND t.name = %s
         """
-        params.insert(0, tag)
+        tag_params = [tag]
 
     where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
@@ -229,15 +230,15 @@ def list_contacts(
 
     with db_conn() as conn:
         with conn.cursor() as cur:
-            count_params = ([tag] if tag else []) + params
+            query_params = tag_params + params
             cur.execute(
                 f"SELECT COUNT(*) AS n FROM contacts c {tag_join} {where}",
-                count_params,
+                query_params,
             )
             total = cur.fetchone()["n"]
 
             offset = (page - 1) * per_page
-            all_params = count_params + [per_page, offset]
+            all_params = query_params + [per_page, offset]
             cur.execute(
                 base_query + " ORDER BY c.region, c.council, c.name LIMIT %s OFFSET %s",
                 all_params,
