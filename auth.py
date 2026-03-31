@@ -117,8 +117,8 @@ def google_callback():
         user_info = {}
 
     email = user_info.get("email", "")
-    allowed = os.environ.get("ALLOWED_EMAIL", "").strip().lower()
-    if email.lower() != allowed:
+    allowed = [e.strip().lower() for e in os.environ.get("ALLOWED_EMAIL", "").split(",") if e.strip()]
+    if email.lower() not in allowed:
         return render_template("login.html", error="이 계정은 승인되지 않았습니다", csrf_token=get_csrf_token()), 403
 
     # Store token in Supabase settings
