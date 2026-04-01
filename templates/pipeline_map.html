@@ -6,27 +6,21 @@
   <a href="{{ url_for('pipeline') }}" class="btn btn-secondary">칸반 보기</a>
 </div>
 
+<div class="map-legend-top">
+  <span class="legend-total">{{ data.total }}명</span>
+  <div class="legend-items">
+    <span><span class="ldot" style="background:#94a3b8"></span>미연락</span>
+    <span><span class="ldot" style="background:#3b82f6"></span>연락</span>
+    <span><span class="ldot" style="background:#10b981"></span>답변</span>
+    <span><span class="ldot" style="background:#f59e0b"></span>데모</span>
+    <span><span class="ldot" style="background:#8b5cf6"></span>클로즈</span>
+  </div>
+</div>
+
 <div class="map-layout">
   <div class="map-container" id="map-container">
     <object data="{{ url_for('static', filename='korea-map.svg') }}" type="image/svg+xml" id="korea-svg" style="width:100%;max-width:400px;min-height:640px"></object>
     <div id="map-tooltip" class="map-tooltip" style="display:none"></div>
-    <div class="map-legend">
-      <div class="legend-title">{{ data.total }}명</div>
-      <div class="legend-bar">
-        <span style="background:#94a3b8"></span>
-        <span style="background:#3b82f6"></span>
-        <span style="background:#10b981"></span>
-        <span style="background:#f59e0b"></span>
-        <span style="background:#8b5cf6"></span>
-      </div>
-      <div class="legend-labels">
-        <span>미연락</span>
-        <span>연락</span>
-        <span>답변</span>
-        <span>데모</span>
-        <span>클로즈</span>
-      </div>
-    </div>
   </div>
 
   <div class="map-sidebar">
@@ -73,15 +67,15 @@
 .region-summary-row:hover { background: #f0f9ff; }
 .region-summary-row.active { background: #dbeafe; }
 
-.map-legend {
-  position: absolute; bottom: 12px; left: 12px;
-  background: rgba(255,255,255,0.9); border-radius: 8px;
-  padding: 8px 12px; font-size: 11px; box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+.map-legend-top {
+  display: flex; align-items: center; gap: 16px; margin-bottom: 16px;
+  padding: 10px 16px; background: #fff; border-radius: 8px;
+  border: 1px solid #e5e7eb;
 }
-.legend-title { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
-.legend-bar { display: flex; gap: 2px; margin-bottom: 2px; }
-.legend-bar span { width: 32px; height: 10px; border-radius: 2px; }
-.legend-labels { display: flex; justify-content: space-between; color: #64748b; font-size: 10px; }
+.legend-total { font-weight: 700; font-size: 16px; }
+.legend-items { display: flex; gap: 12px; font-size: 13px; color: #374151; }
+.legend-items span { display: flex; align-items: center; gap: 4px; }
+.ldot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 
 .stage-bars { display: flex; flex-direction: column; gap: 6px; }
 .stage-row { display: flex; align-items: center; gap: 8px; }
