@@ -691,6 +691,32 @@ def pipeline_data() -> dict:
     return result
 
 
+def pipeline_map_data() -> dict:
+    """Regional pipeline data for map view. Returns {region: {status: count}}."""
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT region, status, COUNT(*) AS n
+                FROM contacts
+                WHERE region IS NOT NULL AND region != ''
+                GROUP BY region, status
+                ORDER BY region
+            """)
+            rows = cur.fetchall()
+
+            cur.execute("SELECT COUNT(*) AS n FROM contacts WHERE region IS NOT NULL AND region != ''")
+            total = cur.fetchone()["n"]
+
+    result = {}
+    for r in rows:
+        if r["region"] not in result:
+            result[r["region"]] = {"total": 0}
+        result[r["region"]][r["status"]] = r["n"]
+        result[r["region"]]["total"] += r["n"]
+
+    return {"regions": result, "total": total}
+
+
 # ── Campaigns ──────────────────────────────────────────────────────────────────
 
 def create_campaign(name: str) -> int:

@@ -399,6 +399,18 @@ def create_app():
         ]
         return render_template("pipeline.html", columns=columns, today=str(date.today()), csrf_token=get_csrf_token())
 
+    @app.route("/pipeline/map")
+    @login_required
+    def pipeline_map():
+        data = db.pipeline_map_data()
+        statuses = list(db.get_statuses())
+        return render_template("pipeline_map.html", data=data, statuses=statuses, csrf_token=get_csrf_token())
+
+    @app.route("/api/pipeline/map")
+    @login_required
+    def api_pipeline_map():
+        return jsonify(db.pipeline_map_data())
+
     # ── Bulk send ──────────────────────────────────────────────────────────────
 
     @app.route("/bulk-send")
