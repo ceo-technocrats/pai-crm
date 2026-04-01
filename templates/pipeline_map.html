@@ -119,16 +119,21 @@ document.getElementById('korea-svg').addEventListener('load', function() {
     path.style.transition = 'fill 0.2s';
 
     if (rd) {
+      // Color: blue gradient based on contact count, green tint if engaged
       const engaged = rd.total - (rd['미연락'] || 0);
       const ratio = rd.total > 0 ? engaged / rd.total : 0;
-      const intensity = Math.max(0.25, rd.total / maxTotal);
+      const t = Math.min(rd.total / maxTotal, 1);
 
-      if (ratio > 0.5) {
-        path.style.fill = 'rgba(16, 185, 129, ' + intensity + ')';
-      } else if (ratio > 0.2) {
-        path.style.fill = 'rgba(59, 130, 246, ' + intensity + ')';
-      } else if (rd.total > 0) {
-        path.style.fill = 'rgba(148, 163, 184, ' + Math.max(0.4, intensity) + ')';
+      // Base: light blue (#dbeafe) to medium blue (#3b82f6) based on volume
+      const r = Math.round(219 - t * 160);
+      const g = Math.round(234 - t * 104);
+      const b = Math.round(254 - t * 8);
+
+      if (ratio > 0.3) {
+        // Green tint for engaged regions
+        path.style.fill = `rgb(${Math.round(r*0.7)}, ${Math.round(g*1.05)}, ${Math.round(b*0.7)})`;
+      } else {
+        path.style.fill = `rgb(${r}, ${g}, ${b})`;
       }
     }
 
