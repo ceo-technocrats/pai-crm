@@ -10,6 +10,19 @@
   <div class="map-container" id="map-container">
     <object data="{{ url_for('static', filename='korea-map.svg') }}" type="image/svg+xml" id="korea-svg" style="width:100%;max-width:400px"></object>
     <div id="map-tooltip" class="map-tooltip" style="display:none"></div>
+    <div class="map-legend">
+      <div class="legend-title">{{ data.total }}명</div>
+      <div class="legend-bar">
+        <span class="legend-low"></span>
+        <span class="legend-mid"></span>
+        <span class="legend-high"></span>
+      </div>
+      <div class="legend-labels">
+        <span>적음</span>
+        <span>참여중</span>
+        <span>많음</span>
+      </div>
+    </div>
   </div>
 
   <div class="map-sidebar">
@@ -55,6 +68,19 @@
 .table-sm th, .table-sm td { padding: 4px 6px; }
 .region-summary-row:hover { background: #f0f9ff; }
 .region-summary-row.active { background: #dbeafe; }
+
+.map-legend {
+  position: absolute; bottom: 12px; left: 12px;
+  background: rgba(255,255,255,0.9); border-radius: 8px;
+  padding: 8px 12px; font-size: 11px; box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+.legend-title { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+.legend-bar { display: flex; gap: 2px; margin-bottom: 2px; }
+.legend-bar span { width: 32px; height: 10px; border-radius: 2px; }
+.legend-low { background: #dbeafe; }
+.legend-mid { background: #7cb8a4; }
+.legend-high { background: #3b82f6; }
+.legend-labels { display: flex; justify-content: space-between; color: #64748b; font-size: 10px; }
 
 @media (max-width: 768px) {
   .map-layout { flex-direction: column; }
