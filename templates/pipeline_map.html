@@ -13,14 +13,18 @@
     <div class="map-legend">
       <div class="legend-title">{{ data.total }}명</div>
       <div class="legend-bar">
-        <span class="legend-low"></span>
-        <span class="legend-mid"></span>
-        <span class="legend-high"></span>
+        <span style="background:#94a3b8"></span>
+        <span style="background:#3b82f6"></span>
+        <span style="background:#10b981"></span>
+        <span style="background:#f59e0b"></span>
+        <span style="background:#8b5cf6"></span>
       </div>
       <div class="legend-labels">
-        <span>적음</span>
-        <span>참여중</span>
-        <span>많음</span>
+        <span>미연락</span>
+        <span>연락</span>
+        <span>답변</span>
+        <span>데모</span>
+        <span>클로즈</span>
       </div>
     </div>
   </div>
@@ -54,7 +58,7 @@
 
 <style>
 .map-layout { display: flex; gap: 24px; align-items: flex-start; }
-.map-container { flex: 0 0 400px; position: relative; }
+.map-container { flex: 0 0 400px; position: relative; padding-bottom: 20px; }
 .map-sidebar { flex: 1; min-width: 0; }
 
 .map-tooltip {
@@ -77,9 +81,6 @@
 .legend-title { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
 .legend-bar { display: flex; gap: 2px; margin-bottom: 2px; }
 .legend-bar span { width: 32px; height: 10px; border-radius: 2px; }
-.legend-low { background: #dbeafe; }
-.legend-mid { background: #7cb8a4; }
-.legend-high { background: #3b82f6; }
 .legend-labels { display: flex; justify-content: space-between; color: #64748b; font-size: 10px; }
 
 @media (max-width: 768px) {
@@ -145,22 +146,28 @@ document.getElementById('korea-svg').addEventListener('load', function() {
     path.style.transition = 'fill 0.2s';
 
     if (rd) {
-      // Color: blue gradient based on contact count, green tint if engaged
-      const engaged = rd.total - (rd['미연락'] || 0);
-      const ratio = rd.total > 0 ? engaged / rd.total : 0;
-      const t = Math.min(rd.total / maxTotal, 1);
-
-      // Base: light blue (#dbeafe) to medium blue (#3b82f6) based on volume
-      const r = Math.round(219 - t * 160);
-      const g = Math.round(234 - t * 104);
-      const b = Math.round(254 - t * 8);
-
-      if (ratio > 0.3) {
-        // Green tint for engaged regions
-        path.style.fill = `rgb(${Math.round(r*0.7)}, ${Math.round(g*1.05)}, ${Math.round(b*0.7)})`;
-      } else {
-        path.style.fill = `rgb(${r}, ${g}, ${b})`;
+      // Color by dominant pipeline stage (weighted: later stages = more progress)
+      const stageColors = {
+        '미연락': [148, 163, 184],  // gray
+        '연락함': [59, 130, 246],   // blue
+        '답변옴': [16, 185, 129],   // green
+        '데모예약': [245, 158, 11], // amber
+        '클로즈': [139, 92, 246],   // purple
+      };
+      // Find the most advanced stage with contacts
+      let bestStage = '미연락';
+      const stageOrder = ['클로즈','데모예약','답변옴','연락함','미연락'];
+      for (const s of stageOrder) {
+        if ((rd[s] || 0) > 0) { bestStage = s; break; }
       }
+      // Blend: base color from best stage, intensity from volume
+      const base = stageColors[bestStage] || [148, 163, 184];
+      const t = Math.max(0.3, Math.min(rd.total / maxTotal, 1));
+      // Lighten: mix with white based on inverse of t
+      const cr = Math.round(base[0] + (255 - base[0]) * (1 - t));
+      const cg = Math.round(base[1] + (255 - base[1]) * (1 - t));
+      const cb = Math.round(base[2] + (255 - base[2]) * (1 - t));
+      path.style.fill = `rgb(${cr}, ${cg}, ${cb})`;
     }
 
     path.addEventListener('mouseenter', function(e) {
