@@ -7,58 +7,12 @@
 </div>
 
 <div class="map-layout">
-  <div class="map-container">
-    <svg viewBox="0 0 800 1000" xmlns="http://www.w3.org/2000/svg" id="korea-map">
-      <!-- Simplified South Korea map paths by region -->
-      <!-- 경기/서울/인천 (north-west) -->
-      <path id="r-경기" d="M250,180 L350,150 L420,170 L440,220 L430,280 L380,310 L320,320 L270,290 L240,240 Z" />
-      <path id="r-서울" d="M310,220 L350,210 L370,230 L360,260 L320,265 L305,245 Z" />
-      <path id="r-인천" d="M230,210 L270,200 L285,230 L275,265 L250,270 L220,250 Z" />
-
-      <!-- 강원 (north-east) -->
-      <path id="r-강원" d="M420,130 L530,110 L580,160 L570,250 L530,310 L450,300 L430,280 L440,220 L420,170 Z" />
-
-      <!-- 세종/대전/충남/충북 (central) -->
-      <path id="r-충북" d="M380,310 L450,300 L480,340 L470,400 L420,420 L370,400 L350,360 Z" />
-      <path id="r-충남" d="M220,320 L320,320 L350,360 L370,400 L340,440 L280,460 L220,430 L200,370 Z" />
-      <path id="r-대전" d="M330,390 L370,380 L380,410 L360,430 L330,420 Z" />
-      <path id="r-세종" d="M310,355 L340,345 L350,370 L335,385 L310,375 Z" />
-
-      <!-- 전북/전남/광주 (south-west) -->
-      <path id="r-전북" d="M220,460 L340,440 L370,480 L360,540 L290,560 L230,530 L210,490 Z" />
-      <path id="r-전남" d="M210,560 L290,560 L340,580 L350,640 L320,700 L250,720 L190,690 L170,620 Z" />
-      <path id="r-광주" d="M260,590 L300,580 L310,610 L290,630 L260,620 Z" />
-
-      <!-- 경북/경남/대구/울산/부산 (south-east) -->
-      <path id="r-경북" d="M450,300 L530,310 L580,350 L590,430 L550,480 L480,490 L420,460 L420,420 L470,400 L480,340 Z" />
-      <path id="r-경남" d="M340,540 L420,500 L480,490 L520,530 L510,600 L450,640 L380,630 L340,590 Z" />
-      <path id="r-대구" d="M460,420 L510,410 L530,440 L520,470 L480,475 L455,455 Z" />
-      <path id="r-울산" d="M540,440 L590,430 L600,480 L580,510 L545,500 L530,470 Z" />
-      <path id="r-부산" d="M510,560 L560,530 L580,560 L570,600 L530,610 L505,590 Z" />
-
-      <!-- 제주 (island) -->
-      <path id="r-제주" d="M230,820 L340,810 L360,840 L340,870 L240,880 L210,850 Z" />
-    </svg>
-
-    <!-- Tooltips rendered on hover -->
+  <div class="map-container" id="map-container">
+    <object data="{{ url_for('static', filename='korea-map.svg') }}" type="image/svg+xml" id="korea-svg" style="width:100%;max-width:400px"></object>
     <div id="map-tooltip" class="map-tooltip" style="display:none"></div>
   </div>
 
-  <!-- Legend / Summary sidebar -->
   <div class="map-sidebar">
-    <div class="card">
-      <h2>전체 현황</h2>
-      <div class="map-total">{{ data.total }}명</div>
-      <div class="map-legend">
-        {% for s in statuses %}
-        <div class="legend-row">
-          <span class="legend-dot legend-dot--{{ loop.index0 }}"></span>
-          <span>{{ s }}</span>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-
     <div class="card" id="region-detail" style="display:none">
       <h2 id="region-detail-name"></h2>
       <div id="region-detail-body"></div>
@@ -68,10 +22,10 @@
     <div class="card">
       <h2>지역 요약</h2>
       <table class="table table-sm">
-        <thead><tr><th>지역</th><th>전체</th>{% for s in statuses %}<th>{{ s[:2] }}</th>{% endfor %}</tr></thead>
+        <thead><tr><th>지역</th><th>전체</th>{% for s in statuses %}<th style="font-size:11px">{{ s[:2] }}</th>{% endfor %}</tr></thead>
         <tbody>
           {% for region, counts in data.regions.items() | sort %}
-          <tr>
+          <tr class="region-summary-row" data-region="{{ region }}" style="cursor:pointer">
             <td><strong>{{ region }}</strong></td>
             <td>{{ counts.total }}</td>
             {% for s in statuses %}
@@ -87,17 +41,9 @@
 
 <style>
 .map-layout { display: flex; gap: 24px; align-items: flex-start; }
-.map-container { flex: 1; position: relative; min-width: 0; max-width: 500px; }
-.map-sidebar { width: 360px; flex-shrink: 0; }
-.map-total { font-size: 32px; font-weight: 700; margin: 8px 0; }
+.map-container { flex: 0 0 400px; position: relative; }
+.map-sidebar { flex: 1; min-width: 0; }
 
-#korea-map path {
-  fill: #e5e7eb; stroke: #fff; stroke-width: 2;
-  cursor: pointer; transition: fill .2s, opacity .2s;
-}
-#korea-map path:hover { opacity: 0.85; }
-
-/* Color intensity based on data — set by JS */
 .map-tooltip {
   position: absolute; background: #1a1a2e; color: #fff;
   padding: 8px 12px; border-radius: 6px; font-size: 13px;
@@ -105,22 +51,14 @@
   box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
-.map-legend { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
-.legend-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-.legend-dot { width: 12px; height: 12px; border-radius: 50%; }
-.legend-dot--0 { background: #94a3b8; }
-.legend-dot--1 { background: #3b82f6; }
-.legend-dot--2 { background: #10b981; }
-.legend-dot--3 { background: #f59e0b; }
-.legend-dot--4 { background: #8b5cf6; }
-
 .table-sm { font-size: 12px; }
 .table-sm th, .table-sm td { padding: 4px 6px; }
+.region-summary-row:hover { background: #f0f9ff; }
+.region-summary-row.active { background: #dbeafe; }
 
 @media (max-width: 768px) {
   .map-layout { flex-direction: column; }
-  .map-sidebar { width: 100%; }
-  .map-container { max-width: 100%; }
+  .map-container { flex: none; width: 100%; }
 }
 </style>
 
@@ -129,69 +67,107 @@ const regionData = {{ data.regions | tojson }};
 const statuses = {{ statuses | tojson }};
 const statusColors = ['#94a3b8','#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#ec4899','#14b8a6'];
 
-// Color map paths based on total contacts
-const totals = Object.values(regionData).map(r => r.total);
-const maxTotal = Math.max(...totals, 1);
+// Known SVG regions (mapped from the SVG file)
+const svgRegionMap = {
+  '서울':'서울','부산':'부산','대구':'대구','인천':'인천','광주':'광주',
+  '대전':'대전','울산':'울산','경기':'경기','강원':'강원','충북':'충북',
+  '충남':'충남','전북':'전북','전남':'전남','경북':'경북','경남':'경남','제주':'제주'
+};
 
-// Map region names to SVG path IDs
-document.querySelectorAll('#korea-map path').forEach(path => {
-  const region = path.id.replace('r-', '');
+const tooltip = document.getElementById('map-tooltip');
+
+function showRegionDetail(region) {
   const rd = regionData[region];
-  if (rd) {
-    // Color by engagement ratio (non-미연락 / total)
-    const engaged = rd.total - (rd['미연락'] || 0);
-    const ratio = engaged / rd.total;
-    const intensity = Math.max(0.15, rd.total / maxTotal);
-    if (ratio > 0.5) {
-      path.style.fill = `rgba(16, 185, 129, ${intensity})`; // green
-    } else if (ratio > 0.2) {
-      path.style.fill = `rgba(59, 130, 246, ${intensity})`; // blue
-    } else {
-      path.style.fill = `rgba(148, 163, 184, ${Math.max(0.3, intensity)})`; // gray
+  if (!rd) return;
+  document.getElementById('region-detail').style.display = 'block';
+  document.getElementById('region-detail-name').textContent = region + ' (' + rd.total + '명)';
+  let html = '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px">';
+  statuses.forEach((s, i) => {
+    const count = rd[s] || 0;
+    html += '<div style="text-align:center;padding:8px;background:#f8fafc;border-radius:6px">' +
+      '<div style="font-size:18px;font-weight:700;color:' + statusColors[i] + '">' + count + '</div>' +
+      '<div style="font-size:11px;color:#64748b">' + s + '</div></div>';
+  });
+  html += '</div>';
+  document.getElementById('region-detail-body').innerHTML = html;
+  document.getElementById('region-detail-link').href = '/contacts?region=' + encodeURIComponent(region);
+
+  // Highlight table row
+  document.querySelectorAll('.region-summary-row').forEach(r => r.classList.remove('active'));
+  const row = document.querySelector('.region-summary-row[data-region="' + region + '"]');
+  if (row) row.classList.add('active');
+}
+
+// Wait for SVG to load
+document.getElementById('korea-svg').addEventListener('load', function() {
+  const svgDoc = this.contentDocument;
+  if (!svgDoc) return;
+
+  const totals = Object.values(regionData).map(r => r.total);
+  const maxTotal = Math.max(...totals, 1);
+
+  // Style all paths
+  svgDoc.querySelectorAll('path[data-region]').forEach(path => {
+    const region = path.getAttribute('data-region');
+    const rd = regionData[region];
+
+    // Default style
+    path.style.fill = '#e2e8f0';
+    path.style.stroke = '#fff';
+    path.style.strokeWidth = '0.5';
+    path.style.cursor = 'pointer';
+    path.style.transition = 'fill 0.2s';
+
+    if (rd) {
+      const engaged = rd.total - (rd['미연락'] || 0);
+      const ratio = rd.total > 0 ? engaged / rd.total : 0;
+      const intensity = Math.max(0.25, rd.total / maxTotal);
+
+      if (ratio > 0.5) {
+        path.style.fill = 'rgba(16, 185, 129, ' + intensity + ')';
+      } else if (ratio > 0.2) {
+        path.style.fill = 'rgba(59, 130, 246, ' + intensity + ')';
+      } else if (rd.total > 0) {
+        path.style.fill = 'rgba(148, 163, 184, ' + Math.max(0.4, intensity) + ')';
+      }
     }
-  }
+
+    path.addEventListener('mouseenter', function(e) {
+      this.style.opacity = '0.8';
+      if (!rd) { tooltip.innerHTML = '<strong>' + region + '</strong><br>데이터 없음'; }
+      else {
+        let html = '<strong>' + region + '</strong> (' + rd.total + '명)<br>';
+        statuses.forEach((s, i) => {
+          const count = rd[s] || 0;
+          if (count > 0) html += '<span style="color:' + statusColors[i] + '">' + s + ': ' + count + '</span><br>';
+        });
+        tooltip.innerHTML = html;
+      }
+      tooltip.style.display = 'block';
+    });
+
+    path.addEventListener('mousemove', function(e) {
+      const rect = document.getElementById('map-container').getBoundingClientRect();
+      const svgRect = document.getElementById('korea-svg').getBoundingClientRect();
+      tooltip.style.left = (e.clientX - rect.left + 12) + 'px';
+      tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
+    });
+
+    path.addEventListener('mouseleave', function() {
+      this.style.opacity = '1';
+      tooltip.style.display = 'none';
+    });
+
+    path.addEventListener('click', function() {
+      showRegionDetail(region);
+    });
+  });
 });
 
-// Tooltip
-const tooltip = document.getElementById('map-tooltip');
-document.querySelectorAll('#korea-map path').forEach(path => {
-  const region = path.id.replace('r-', '');
-
-  path.addEventListener('mouseenter', (e) => {
-    const rd = regionData[region];
-    if (!rd) { tooltip.style.display = 'none'; return; }
-    let html = `<strong>${region}</strong> (${rd.total}명)<br>`;
-    statuses.forEach((s, i) => {
-      const count = rd[s] || 0;
-      if (count > 0) html += `<span style="color:${statusColors[i]}">${s}: ${count}</span><br>`;
-    });
-    tooltip.innerHTML = html;
-    tooltip.style.display = 'block';
-  });
-
-  path.addEventListener('mousemove', (e) => {
-    const rect = document.querySelector('.map-container').getBoundingClientRect();
-    tooltip.style.left = (e.clientX - rect.left + 12) + 'px';
-    tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
-  });
-
-  path.addEventListener('mouseleave', () => {
-    tooltip.style.display = 'none';
-  });
-
-  path.addEventListener('click', () => {
-    const rd = regionData[region];
-    if (!rd) return;
-    document.getElementById('region-detail').style.display = 'block';
-    document.getElementById('region-detail-name').textContent = region;
-    let html = `<div class="stats-grid" style="grid-template-columns:repeat(2,1fr);gap:8px">`;
-    statuses.forEach((s, i) => {
-      const count = rd[s] || 0;
-      html += `<div class="stat-card" style="padding:8px"><div class="stat-value" style="font-size:20px;color:${statusColors[i]}">${count}</div><div class="stat-label" style="font-size:11px">${s}</div></div>`;
-    });
-    html += `</div>`;
-    document.getElementById('region-detail-body').innerHTML = html;
-    document.getElementById('region-detail-link').href = `/contacts?region=${encodeURIComponent(region)}`;
+// Table row click
+document.querySelectorAll('.region-summary-row').forEach(row => {
+  row.addEventListener('click', function() {
+    showRegionDetail(this.dataset.region);
   });
 });
 </script>
