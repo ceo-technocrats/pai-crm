@@ -780,28 +780,41 @@ def delete_campaign_step(step_id: int) -> None:
 def launch_campaign(campaign_id: int, region: str = None, party: str = None,
                     status_filter: str = None, tag: str = None) -> tuple[int, int]:
     conditions = ["c.email IS NOT NULL", "c.email != ''"]
-    params = [campaign_id]
+    filter_params = []
     tag_join = ""
+    tag_params = []
+
     if region:
-        conditions.append("c.region = %s"); params.append(region)
+        conditions.append("c.region = %s")
+        filter_params.append(region)
     if party:
-        conditions.append("c.party = %s"); params.append(party)
+        conditions.append("c.party = %s")
+        filter_params.append(party)
     if status_filter:
-        conditions.append("c.status = %s"); params.append(status_filter)
+        conditions.append("c.status = %s")
+        filter_params.append(status_filter)
     if tag:
         tag_join = "JOIN contact_tags ct ON ct.contact_id = c.id JOIN tags tg ON tg.id = ct.tag_id AND tg.name = %s"
-        params.append(tag)
+        tag_params = [tag]
+
     where = " AND ".join(conditions)
+
     with db_conn() as conn:
         with conn.cursor() as cur:
+            # INSERT: campaign_id first, then tag params, then filter params
+            insert_params = [campaign_id] + tag_params + filter_params
             cur.execute(f"""
                 INSERT INTO campaign_enrollments (campaign_id, contact_id)
                 SELECT %s, c.id FROM contacts c {tag_join} WHERE {where}
                 ON CONFLICT (campaign_id, contact_id) DO NOTHING
-            """, params)
+            """, insert_params)
             enrolled = cur.rowcount
-            cur.execute(f"SELECT COUNT(*) AS n FROM contacts c {tag_join} WHERE {where}", params[1:])
+
+            # COUNT: tag params first, then filter params (no campaign_id)
+            count_params = tag_params + filter_params
+            cur.execute(f"SELECT COUNT(*) AS n FROM contacts c {tag_join} WHERE {where}", count_params)
             total = cur.fetchone()["n"]
+
     return enrolled, total - enrolled
 
 def campaign_stats(campaign_id: int) -> dict:
