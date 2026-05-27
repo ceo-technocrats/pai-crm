@@ -243,6 +243,7 @@ def cron_campaign():
             gmail_id = gmail.send_email(service, contact["email"], subject, body, attachments=attachments)
         except HttpError as e:
             status_code = int(e.resp.status)
+            db.set_setting("campaign_last_error", f"contact={row['contact_id']} email={contact.get('email','')} HttpError={status_code}: {e}")
             if status_code == 429:
                 # Rate limit — stop this batch, retry next cron run (don't increment retry_count)
                 skipped += len(due) - sent - failed
@@ -259,12 +260,13 @@ def cron_campaign():
             failed += 1
             continue
         except Exception as e:
-            import traceback
-            print(f"[campaign] send failed for contact {row['contact_id']}: {type(e).__name__}: {e}")
-            traceback.print_exc()
+            error_msg = f"{type(e).__name__}: {e}"
+            print(f"[campaign] send failed for contact {row['contact_id']}: {error_msg}")
+            # Save error to DB for debugging
+            db.set_setting("campaign_last_error", f"contact={row['contact_id']} email={contact.get('email','')} err={error_msg}")
             db.mark_enrollment_retry(row["enrollment_id"])
             failed += 1
-            last_error = f"{type(e).__name__}: {e}"
+            last_error = error_msg
             continue
 
         # Throttle: 1.5s between sends to avoid Gmail rate limit
