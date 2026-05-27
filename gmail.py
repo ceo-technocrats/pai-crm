@@ -87,18 +87,18 @@ def send_email(service, to: str, subject: str, body: str, attachments: list = No
     content_type = "html" if is_html else "plain"
 
     if attachments:
-        import email.mime.multipart
-        import email.mime.base
-        import email.encoders
-        msg = email.mime.multipart.MIMEMultipart()
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.base import MIMEBase
+        from email import encoders as _encoders
+        msg = MIMEMultipart()
         msg["To"] = to
         msg["Subject"] = subject
         msg.attach(email.mime.text.MIMEText(body, content_type, "utf-8"))
         for att in attachments:
             maintype, subtype = att["mimetype"].split("/", 1) if "/" in att["mimetype"] else ("application", "octet-stream")
-            part = email.mime.base.MIMEBase(maintype, subtype)
+            part = MIMEBase(maintype, subtype)
             part.set_payload(base64.b64decode(att["data"]))
-            email.encoders.encode_base64(part)
+            _encoders.encode_base64(part)
             part.add_header("Content-Disposition", "attachment", filename=att["filename"])
             msg.attach(part)
     else:
