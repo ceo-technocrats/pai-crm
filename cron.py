@@ -191,6 +191,7 @@ def cron_campaign():
     sent = 0
     failed = 0
     skipped = 0
+    last_error = None
 
     from datetime import datetime, timezone
 
@@ -257,9 +258,13 @@ def cron_campaign():
                 )
             failed += 1
             continue
-        except Exception:
+        except Exception as e:
+            import traceback
+            print(f"[campaign] send failed for contact {row['contact_id']}: {type(e).__name__}: {e}")
+            traceback.print_exc()
             db.mark_enrollment_retry(row["enrollment_id"])
             failed += 1
+            last_error = f"{type(e).__name__}: {e}"
             continue
 
         # Throttle: 1.5s between sends to avoid Gmail rate limit
@@ -285,4 +290,7 @@ def cron_campaign():
 
         sent += 1
 
-    return jsonify({"sent": sent, "failed": failed, "skipped": skipped})
+    result = {"sent": sent, "failed": failed, "skipped": skipped}
+    if last_error:
+        result["last_error"] = last_error
+    return jsonify(result)
