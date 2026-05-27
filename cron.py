@@ -14,6 +14,7 @@ POST /cron/sync-inbox
 """
 
 import os
+import time
 
 from flask import Blueprint, request, jsonify
 from googleapiclient.errors import HttpError
@@ -183,13 +184,15 @@ def cron_campaign():
     except RefreshError:
         return jsonify({"error": "Gmail token expired"}), 503
 
-    due = db.get_due_campaign_steps(50)
+    due = db.get_due_campaign_steps(20)
     if not due:
         return jsonify({"sent": 0, "failed": 0, "skipped": 0})
 
     sent = 0
     failed = 0
     skipped = 0
+
+    from datetime import datetime, timezone
 
     for row in due:
         if db.sends_today() >= DAILY_LIMIT:
@@ -202,7 +205,6 @@ def cron_campaign():
             failed += 1
             continue
 
-        from datetime import datetime, timezone
         days_since = 0
         if row.get("enrolled_at"):
             days_since = (datetime.now(timezone.utc) - row["enrolled_at"]).days
@@ -240,6 +242,10 @@ def cron_campaign():
             gmail_id = gmail.send_email(service, contact["email"], subject, body, attachments=attachments)
         except HttpError as e:
             status_code = int(e.resp.status)
+            if status_code == 429:
+                # Rate limit — stop this batch, retry next cron run (don't increment retry_count)
+                skipped += len(due) - sent - failed
+                break
             paused = db.mark_enrollment_retry(row["enrollment_id"])
             if paused:
                 db.log_outreach(
@@ -255,6 +261,9 @@ def cron_campaign():
             db.mark_enrollment_retry(row["enrollment_id"])
             failed += 1
             continue
+
+        # Throttle: 1.5s between sends to avoid Gmail rate limit
+        time.sleep(1.5)
 
         db.log_outreach(
             contact_id=row["contact_id"],
